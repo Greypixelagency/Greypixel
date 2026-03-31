@@ -94,6 +94,13 @@ __________________________
 `;
 
 export default function App() {
+  // Debug environment variables
+  console.log('Environment check:', {
+    supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+    supabaseKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing',
+    nodeEnv: import.meta.env.MODE
+  });
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses'>('dashboard');
   const [revenueCurrency, setRevenueCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true);
@@ -1971,6 +1978,28 @@ export default function App() {
     latestMonthRevenue,
     latestMonthName
   };
+
+  // Check for required environment variables
+  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="text-red-500 mb-4">
+            <AlertCircle size={48} className="mx-auto" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Configuration Error</h1>
+          <p className="text-gray-600 mb-4">
+            Missing required environment variables. Please check your deployment configuration.
+          </p>
+          <div className="text-left bg-gray-50 p-4 rounded text-sm">
+            <p><strong>Status:</strong></p>
+            <p>VITE_SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL ? '✅ Set' : '❌ Missing'}</p>
+            <p>VITE_SUPABASE_ANON_KEY: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     const loginUser = users.find(u => u.name.toLowerCase() === loginForm.username.toLowerCase());
