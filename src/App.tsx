@@ -6347,21 +6347,21 @@ const MonthCard: FC<MonthCardProps> = ({
                 ))}
               </div>
 
-              <div className="px-8 mt-6 flex gap-3">
+              <div className="px-4 sm:px-8 mt-6 flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
                   placeholder="What's the project name?"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                  className="flex-1 px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  className="flex-1 px-4 sm:px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                 />
                 <button
                   onClick={handleAdd}
-                  className="px-6 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-2"
+                  className="px-4 sm:px-6 py-4 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-2"
                 >
                   <Plus size={20} />
-                  <span className="text-sm font-bold">Add Project</span>
+                  <span className="hidden sm:inline text-sm font-bold">Add Project</span>
                 </button>
               </div>
             </div>
@@ -6477,21 +6477,21 @@ const DayCard: FC<DayCardProps> = ({ section, onToggle, onDelete, onAddTask, onD
               </div>
 
               {/* Add Task Input */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <input
                   type="text"
                   placeholder="What's the next step?"
                   value={taskInput}
                   onChange={(e) => setTaskInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                  className="flex-1 px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  className="flex-1 px-4 sm:px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                 />
                 <button
                   onClick={handleAddTask}
-                  className="px-6 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-2"
+                  className="px-4 sm:px-6 py-4 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-2"
                 >
                   <Plus size={20} />
-                  <span className="text-sm font-bold">Add Task</span>
+                  <span className="hidden sm:inline text-sm font-bold">Add Task</span>
                 </button>
               </div>
             </div>
@@ -6700,21 +6700,21 @@ const ProjectCard: FC<ProjectCardProps> = ({ project, onToggle, onDelete, onAddT
               </div>
 
               {/* Add Task Input */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <input
                   type="text"
                   placeholder="What's the next step?"
                   value={taskInput}
                   onChange={(e) => setTaskInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                  className="flex-1 px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  className="flex-1 px-4 sm:px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                 />
                 <button
                   onClick={handleAddTask}
-                  className="px-6 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-2"
+                  className="px-4 sm:px-6 py-4 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-2"
                 >
                   <Plus size={20} />
-                  <span className="text-sm font-bold">Add Task</span>
+                  <span className="hidden sm:inline text-sm font-bold">Add Task</span>
                 </button>
               </div>
             </div>
