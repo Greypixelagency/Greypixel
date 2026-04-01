@@ -1995,10 +1995,35 @@ export default function App() {
     tasks: d.tasks.filter(t => t.text.toLowerCase().includes(searchQuery.toLowerCase()))
   })).filter(d => d.tasks.length > 0 || d.day.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  // Helper function to get month number for sorting
+  const getMonthNumber = (monthName: string): number => {
+    const months_full = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    const months_short = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    
+    const lowerName = monthName.toLowerCase().trim();
+    
+    // Check full month names first
+    let index = months_full.findIndex(m => m === lowerName);
+    if (index !== -1) return index;
+    
+    // Check short month names
+    index = months_short.findIndex(m => m === lowerName);
+    if (index !== -1) return index;
+    
+    // Check if it starts with a month name (e.g., "March 2024" -> "March")
+    for (let i = 0; i < months_full.length; i++) {
+      if (lowerName.startsWith(months_full[i])) return i;
+      if (lowerName.startsWith(months_short[i])) return i;
+    }
+    
+    return 999; // Return 999 for non-month names (they'll appear at the end)
+  };
+
   const filteredMonths = months.map(m => ({
     ...m,
     projects: m.projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  })).filter(m => m.projects.length > 0 || m.month.toLowerCase().includes(searchQuery.toLowerCase()));
+  })).filter(m => m.projects.length > 0 || m.month.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => getMonthNumber(a.month) - getMonthNumber(b.month));
 
   const filteredDayTasks = allDayTasks.filter(t => 
     t.text.toLowerCase().includes(searchQuery.toLowerCase())
@@ -2175,7 +2200,7 @@ export default function App() {
         className="fixed lg:relative inset-y-0 left-0 bg-white border-r border-gray-100 flex flex-col shrink-0 overflow-hidden z-50 shadow-2xl lg:shadow-none"
       >
         <div className="p-2 w-[280px]">
-            <div className="flex items-center justify-between mb-12">
+            <div className="flex items-center justify-between mb-6 mt-6">
               <div className="flex items-center gap-3">
                 <img 
                   src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10" 
@@ -2750,6 +2775,18 @@ export default function App() {
                       </tbody>
                     </table>
                   </div>
+                  
+                  {/* Total Amount Display */}
+                  {filteredHosting.length > 0 && (
+                    <div className="bg-gray-50/50 border-t border-gray-100 px-8 py-6">
+                      <div className="flex justify-end items-center gap-4">
+                        <span className="text-sm font-black text-gray-600 uppercase tracking-widest">Total Amount:</span>
+                        <span className="text-xl font-black text-gray-900">
+                          PKR {filteredHosting.reduce((total, h) => total + h.amount, 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -6147,7 +6184,7 @@ const ProjectRow: FC<ProjectRowProps> = ({
 
   return (
     <div className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-10 py-5 items-center hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0">
-      <div className="col-span-4">
+      <div className="col-span-3">
         <input 
           type="text" 
           value={project.name} 
@@ -6372,7 +6409,7 @@ const MonthCard: FC<MonthCardProps> = ({
           >
             <div className="pb-10">
               <div className="bg-gray-50/50 border-y border-gray-100 grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-10 py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">
-                <div className="col-span-4">Project Name</div>
+                <div className="col-span-3">Project Name</div>
                 <div className="col-span-1">Status</div>
                 <div className="col-span-1">Cost</div>
                 <div className="col-span-1">Received</div>
