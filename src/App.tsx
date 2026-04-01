@@ -190,82 +190,115 @@ export default function App() {
     fetchAllData();
   }, []);
 
-  // Helper to save data to Supabase
-  const saveToSupabase = async (table: string, data: any[]) => {
+  // Helper to save data to Supabase with better error handling
+  const saveToSupabase = async (table: string, data: any[], showErrorToast = false) => {
     try {
-      console.log(`Saving ${data.length} items to ${table}`);
-      // First delete all existing records, then insert the current state
-      // This ensures deletions are properly reflected in the database
-      const { error: deleteError } = await supabase.from(table).delete().neq('id', ''); // Delete all records
-      if (deleteError) {
-        console.error(`Delete error for ${table}:`, deleteError);
-        throw deleteError;
+      // Skip sync if no data
+      if (!data || data.length === 0) return true;
+
+      console.log(`Syncing ${data.length} items to ${table}`);
+
+      // Use individual upsert operations for better reliability
+      const results = await Promise.allSettled(
+        data.map(item =>
+          supabase.from(table).upsert(item, {
+            onConflict: 'id'
+          })
+        )
+      );
+
+      const failures = results.filter(result => result.status === 'rejected');
+      const successes = results.filter(result => result.status === 'fulfilled');
+
+      if (failures.length > 0) {
+        console.error(`${failures.length} items failed to sync to ${table}:`, failures);
+        if (showErrorToast) {
+          toast.error(`${failures.length} items failed to sync to cloud. Your data is safe locally.`);
+        }
+        return false;
       }
 
-      if (data.length > 0) {
-        const { error: insertError } = await supabase.from(table).insert(data);
-        if (insertError) {
-          console.error(`Insert error for ${table}:`, insertError);
-          throw insertError;
-        }
-      }
-      console.log(`Successfully saved ${data.length} items to ${table}`);
+      console.log(`Successfully synced ${successes.length} items to ${table}`);
+      return true;
     } catch (error) {
-      console.error(`Error saving to ${table}:`, error);
-      toast.error(`Failed to save ${table} to cloud`);
+      console.error(`Unexpected error syncing to ${table}:`, error);
+      if (showErrorToast) {
+        toast.error(`Failed to sync data to cloud. Your data is safe locally.`);
+      }
+      return false;
     }
   };
 
-  // Sync states to Supabase
+  // Sync states to Supabase with debouncing
   useEffect(() => {
-    if (!isLoading) saveToSupabase('invoices', invoices);
+    if (!isLoading) debouncedSync('invoices', invoices);
   }, [invoices, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('payment_methods', savedPaymentMethods);
+    if (!isLoading) debouncedSync('payment_methods', savedPaymentMethods);
   }, [savedPaymentMethods, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('expense_groups', expenseGroups);
+    if (!isLoading) debouncedSync('expense_groups', expenseGroups);
   }, [expenseGroups, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('quotations', quotations);
+    if (!isLoading) debouncedSync('quotations', quotations);
   }, [quotations, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('messages', messages);
+    if (!isLoading) debouncedSync('messages', messages);
   }, [messages, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('hosting', hosting);
+    if (!isLoading) debouncedSync('hosting', hosting);
   }, [hosting, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('contracts', contracts);
+    if (!isLoading) debouncedSync('contracts', contracts);
   }, [contracts, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('clients', clients);
+    if (!isLoading) debouncedSync('clients', clients);
   }, [clients, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('days', days);
+    if (!isLoading) debouncedSync('days', days);
   }, [days, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('months', months);
+    if (!isLoading) debouncedSync('months', months);
   }, [months, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('users', users);
+    if (!isLoading) debouncedSync('users', users);
   }, [users, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) saveToSupabase('pipeline_clients', pipelineClients);
+    if (!isLoading) debouncedSync('pipeline_clients', pipelineClients);
   }, [pipelineClients, isLoading]);
 
-  const [showAddPipeline, setShowAddPipeline] = useState(false);
+  const [syncTimeouts, setSyncTimeouts] = useState<{[key: string]: NodeJS.Timeout}>({});
+
+  // Debounced sync helper to prevent too many rapid syncs
+  const debouncedSync = (table: string, data: any[]) => {
+    // Clear existing timeout for this table
+    if (syncTimeouts[table]) {
+      clearTimeout(syncTimeouts[table]);
+    }
+
+    // Set new timeout
+    const timeout = setTimeout(() => {
+      saveToSupabase(table, data);
+      setSyncTimeouts(prev => {
+        const newTimeouts = {...prev};
+        delete newTimeouts[table];
+        return newTimeouts;
+      });
+    }, 2000); // 2 second debounce
+
+    setSyncTimeouts(prev => ({...prev, [table]: timeout}));
+  };
   const [newPipelineClient, setNewPipelineClient] = useState<Partial<PipelineClient>>({
     name: '',
     scope: '',
@@ -548,6 +581,7 @@ export default function App() {
   const [showAddMonth, setShowAddMonth] = useState(false);
   const [showAddDay, setShowAddDay] = useState(false);
   const [showAddHosting, setShowAddHosting] = useState(false);
+  const [showAddPipeline, setShowAddPipeline] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [newHosting, setNewHosting] = useState({
@@ -2140,7 +2174,7 @@ export default function App() {
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className="fixed lg:relative inset-y-0 left-0 bg-white border-r border-gray-100 flex flex-col shrink-0 overflow-hidden z-50 shadow-2xl lg:shadow-none"
       >
-        <div className="p-6 w-[280px]">
+        <div className="p-2 w-[280px]">
             <div className="flex items-center justify-between mb-12">
               <div className="flex items-center gap-3">
                 <img 
@@ -2258,7 +2292,7 @@ export default function App() {
         </div>
 
         <div className="mt-auto p-6 border-t border-gray-50">
-          <div className="flex items-center justify-between gap-3 p-2">
+          <div className="flex items-center justify-between gap-3 p-0">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 overflow-hidden shrink-0">
                 <User size={20} />
@@ -6106,9 +6140,14 @@ const ProjectRow: FC<ProjectRowProps> = ({
   const profit = project.cost - project.expressExpense;
   const statusColor = getStatusColor(project.status);
 
+  // Helper function to format currency
+  const formatCurrency = (amount: number) => {
+    return `PKR ${amount.toLocaleString()}`;
+  };
+
   return (
-    <div className="grid grid-cols-12 gap-4 px-8 py-4 items-center hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0">
-      <div className="col-span-3">
+    <div className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-10 py-5 items-center hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0">
+      <div className="col-span-4">
         <input 
           type="text" 
           value={project.name} 
@@ -6117,7 +6156,7 @@ const ProjectRow: FC<ProjectRowProps> = ({
         />
       </div>
       <div className="col-span-1">
-        <div className={`rounded-lg border px-2 py-1 ${statusColor} transition-colors`}>
+        <div className={`rounded-lg border px-2 py-0 ${statusColor} transition-colors`}>
           <select 
             value={project.status} 
             onChange={(e) => onUpdate({ status: e.target.value as ProjectStatus })}
@@ -6132,40 +6171,49 @@ const ProjectRow: FC<ProjectRowProps> = ({
         </div>
       </div>
       <div className="col-span-1">
-        <input 
-          type="number" 
-          value={project.cost || ''} 
-          placeholder="Cost"
-          onChange={(e) => onUpdate({ cost: Number(e.target.value) })}
-          className="w-full bg-transparent text-sm font-medium focus:outline-none"
-        />
+        <div className="relative">
+          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none"></span>
+          <input 
+            type="number" 
+            value={project.cost || ''} 
+            placeholder="0"
+            onChange={(e) => onUpdate({ cost: Number(e.target.value) })}
+            className="w-full bg-transparent text-sm font-medium focus:outline-none pl-3"
+          />
+        </div>
       </div>
       <div className="col-span-1">
-        <input 
-          type="number" 
-          value={project.received || ''} 
-          placeholder="Rec"
-          onChange={(e) => onUpdate({ received: Number(e.target.value) })}
-          className="w-full bg-transparent text-sm font-medium focus:outline-none"
-        />
+        <div className="relative">
+          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none"></span>
+          <input 
+            type="number" 
+            value={project.received || ''} 
+            placeholder="0"
+            onChange={(e) => onUpdate({ received: Number(e.target.value) })}
+            className="w-full bg-transparent text-sm font-medium focus:outline-none pl-5"
+          />
+        </div>
       </div>
       <div className="col-span-1 text-sm font-bold text-gray-400">
-        {pendingAmount}
+        {formatCurrency(pendingAmount)}
       </div>
       <div className="col-span-1 text-sm font-bold text-blue-500">
-        {trade5.toFixed(0)}
+        {formatCurrency(trade5)}
       </div>
       <div className="col-span-1">
-        <input 
-          type="number" 
-          value={project.expressExpense || ''} 
-          placeholder="Urgent"
-          onChange={(e) => onUpdate({ expressExpense: Number(e.target.value) })}
-          className="w-full bg-transparent text-sm font-medium focus:outline-none"
-        />
+        <div className="relative">
+          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">PKR</span>
+          <input 
+            type="number" 
+            value={project.expressExpense || ''} 
+            placeholder="0"
+            onChange={(e) => onUpdate({ expressExpense: Number(e.target.value) })}
+            className="w-full bg-transparent text-sm font-medium focus:outline-none pl-8"
+          />
+        </div>
       </div>
       <div className={`col-span-1 text-sm font-black ${profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-        {profit.toFixed(0)}
+        {formatCurrency(profit)}
       </div>
       <div className="col-span-1">
         <select 
@@ -6285,15 +6333,15 @@ const MonthCard: FC<MonthCardProps> = ({
                   </div>
                   <div className="flex items-center gap-1.5 bg-rose-50 px-2 py-1 rounded-xl border border-rose-100">
                     <span className="text-[9px] font-black text-rose-400 uppercase">Pend:</span>
-                    <span className="text-[10px] font-black text-rose-700">{totals.pending.toLocaleString()}</span>
+                    <span className="text-[10px] font-black text-rose-700">PKR {totals.pending.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-indigo-50 px-2 py-1 rounded-xl border border-indigo-100">
                     <span className="text-[9px] font-black text-indigo-400 uppercase">5%:</span>
-                    <span className="text-[10px] font-black text-indigo-700">{totals.trade5.toFixed(0)}</span>
+                    <span className="text-[10px] font-black text-indigo-700">PKR {totals.trade5.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-amber-50 px-2 py-1 rounded-xl border border-amber-100">
                     <span className="text-[9px] font-black text-amber-400 uppercase">Exp:</span>
-                    <span className="text-[10px] font-black text-amber-700">{totals.express.toLocaleString()}</span>
+                    <span className="text-[10px] font-black text-amber-700">PKR {totals.express.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-100">
                     <span className="text-[9px] font-black text-emerald-400 uppercase">Profit:</span>
@@ -6323,8 +6371,8 @@ const MonthCard: FC<MonthCardProps> = ({
             transition={{ duration: 0.3, ease: 'easeInOut' }}
           >
             <div className="pb-10">
-              <div className="bg-gray-50/50 border-y border-gray-100 grid grid-cols-12 gap-4 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                <div className="col-span-3">Project Name</div>
+              <div className="bg-gray-50/50 border-y border-gray-100 grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-10 py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <div className="col-span-4">Project Name</div>
                 <div className="col-span-1">Status</div>
                 <div className="col-span-1">Cost</div>
                 <div className="col-span-1">Received</div>
@@ -6347,7 +6395,7 @@ const MonthCard: FC<MonthCardProps> = ({
                 ))}
               </div>
 
-              <div className="px-4 sm:px-8 mt-6 flex flex-col sm:flex-row gap-3">
+              <div className="px-10 mt-6 flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
                   placeholder="What's the project name?"
