@@ -191,14 +191,25 @@ export default function App() {
   }, []);
 
   // Helper to save data to Supabase
-  const saveToSupabase = async (table: string, data: any) => {
+  const saveToSupabase = async (table: string, data: any[]) => {
     try {
-      // For simple migration, we'll just upsert the whole array if possible, 
-      // but Supabase upsert works better with individual records.
-      // However, the current app logic updates the whole state array.
-      // A better way is to sync individual changes, but for now we'll do a simple sync.
-      const { error } = await supabase.from(table).upsert(data);
-      if (error) throw error;
+      console.log(`Saving ${data.length} items to ${table}`);
+      // First delete all existing records, then insert the current state
+      // This ensures deletions are properly reflected in the database
+      const { error: deleteError } = await supabase.from(table).delete().neq('id', ''); // Delete all records
+      if (deleteError) {
+        console.error(`Delete error for ${table}:`, deleteError);
+        throw deleteError;
+      }
+
+      if (data.length > 0) {
+        const { error: insertError } = await supabase.from(table).insert(data);
+        if (insertError) {
+          console.error(`Insert error for ${table}:`, insertError);
+          throw insertError;
+        }
+      }
+      console.log(`Successfully saved ${data.length} items to ${table}`);
     } catch (error) {
       console.error(`Error saving to ${table}:`, error);
       toast.error(`Failed to save ${table} to cloud`);
@@ -1274,7 +1285,10 @@ export default function App() {
   };
 
   const deleteInvoice = (id: string) => {
-    setInvoices(invoices.filter(i => i.id !== id));
+    console.log(`Deleting invoice with id: ${id}`);
+    const updatedInvoices = invoices.filter(i => i.id !== id);
+    console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
+    setInvoices(updatedInvoices);
     toast.success('Invoice deleted');
   };
 
