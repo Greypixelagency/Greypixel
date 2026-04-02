@@ -105,6 +105,7 @@ export default function App() {
   const [revenueCurrency, setRevenueCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true);
   const [isLoading, setIsLoading] = useState(true);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   
   // Auth state
   const [currentUser, setCurrentUser] = useState<UserType | null>(() => {
@@ -140,18 +141,18 @@ export default function App() {
       setIsLoading(true);
       try {
         const [
-          { data: pipelineData },
-          { data: usersData },
-          { data: quotationsData },
-          { data: invoicesData },
-          { data: paymentMethodsData },
-          { data: expensesData },
-          { data: messagesData },
-          { data: hostingData },
-          { data: contractsData },
-          { data: clientsData },
-          { data: daysData },
-          { data: monthsData }
+          { data: pipelineData, error: pipelineError },
+          { data: usersData, error: usersError },
+          { data: quotationsData, error: quotationsError },
+          { data: invoicesData, error: invoicesError },
+          { data: paymentMethodsData, error: paymentMethodsError },
+          { data: expensesData, error: expensesError },
+          { data: messagesData, error: messagesError },
+          { data: hostingData, error: hostingError },
+          { data: contractsData, error: contractsError },
+          { data: clientsData, error: clientsError },
+          { data: daysData, error: daysError },
+          { data: monthsData, error: monthsError }
         ] = await Promise.all([
           supabase.from('pipeline_clients').select('*'),
           supabase.from('users').select('*'),
@@ -167,18 +168,51 @@ export default function App() {
           supabase.from('months').select('*')
         ]);
 
-        if (pipelineData) setPipelineClients(pipelineData);
+        // Check for Supabase errors
+        const errors = [
+          { name: 'pipeline_clients', error: pipelineError },
+          { name: 'users', error: usersError },
+          { name: 'quotations', error: quotationsError },
+          { name: 'invoices', error: invoicesError },
+          { name: 'payment_methods', error: paymentMethodsError },
+          { name: 'expense_groups', error: expensesError },
+          { name: 'messages', error: messagesError },
+          { name: 'hosting', error: hostingError },
+          { name: 'contracts', error: contractsError },
+          { name: 'clients', error: clientsError },
+          { name: 'days', error: daysError },
+          { name: 'months', error: monthsError }
+        ].filter(e => e.error);
+
+        if (errors.length > 0) {
+          console.error('Supabase fetch errors:', errors);
+          const hasAuthError = errors.some(e => 
+            e.error?.message?.includes('JWT') || 
+            e.error?.message?.includes('auth') ||
+            e.error?.message?.includes('permission') ||
+            e.error?.message?.includes('row-level security')
+          );
+          if (hasAuthError) {
+            toast.error('Database access denied. Please check your Supabase Row Level Security policies.');
+          } else {
+            toast.error('Some data failed to load from cloud storage');
+          }
+        }
+
+        // Only set state if data exists (prevents overwriting with empty arrays)
+        if (pipelineData && pipelineData.length > 0) setPipelineClients(pipelineData);
         if (usersData && usersData.length > 0) setUsers(usersData);
-        if (quotationsData) setQuotations(quotationsData);
-        if (invoicesData) setInvoices(invoicesData);
+        if (quotationsData && quotationsData.length > 0) setQuotations(quotationsData);
+        if (invoicesData && invoicesData.length > 0) setInvoices(invoicesData);
         if (paymentMethodsData && paymentMethodsData.length > 0) setSavedPaymentMethods(paymentMethodsData);
-        if (expensesData) setExpenseGroups(expensesData);
+        if (expensesData && expensesData.length > 0) setExpenseGroups(expensesData);
         if (messagesData && messagesData.length > 0) setMessages(messagesData);
-        if (hostingData) setHosting(hostingData);
-        if (contractsData) setContracts(contractsData);
-        if (clientsData) setClients(clientsData);
-        if (daysData) setDays(daysData);
-        if (monthsData) setMonths(monthsData);
+        if (hostingData && hostingData.length > 0) setHosting(hostingData);
+        if (contractsData && contractsData.length > 0) setContracts(contractsData);
+        if (clientsData && clientsData.length > 0) setClients(clientsData);
+        if (daysData && daysData.length > 0) setDays(daysData);
+        if (monthsData && monthsData.length > 0) setMonths(monthsData);
+        setInitialDataLoaded(true);
       } catch (error) {
         console.error('Error fetching data from Supabase:', error);
         toast.error('Failed to load data from cloud storage');
@@ -193,8 +227,11 @@ export default function App() {
   // Helper to save data to Supabase with better error handling
   const saveToSupabase = async (table: string, data: any[], showErrorToast = false) => {
     try {
-      // Skip sync if no data
-      if (!data || data.length === 0) return true;
+      // Skip sync if no data - this prevents accidentally deleting all data
+      if (!data || data.length === 0) {
+        console.log(`Skipping sync for ${table}: no data to sync`);
+        return true;
+      }
 
       console.log(`Syncing ${data.length} items to ${table}`);
 
@@ -229,54 +266,54 @@ export default function App() {
     }
   };
 
-  // Sync states to Supabase with debouncing
+  // Sync states to Supabase with debouncing - only after initial data is loaded
   useEffect(() => {
-    if (!isLoading) debouncedSync('invoices', invoices);
-  }, [invoices, isLoading]);
+    if (initialDataLoaded) debouncedSync('invoices', invoices);
+  }, [invoices, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('payment_methods', savedPaymentMethods);
-  }, [savedPaymentMethods, isLoading]);
+    if (initialDataLoaded) debouncedSync('payment_methods', savedPaymentMethods);
+  }, [savedPaymentMethods, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('expense_groups', expenseGroups);
-  }, [expenseGroups, isLoading]);
+    if (initialDataLoaded) debouncedSync('expense_groups', expenseGroups);
+  }, [expenseGroups, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('quotations', quotations);
-  }, [quotations, isLoading]);
+    if (initialDataLoaded) debouncedSync('quotations', quotations);
+  }, [quotations, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('messages', messages);
-  }, [messages, isLoading]);
+    if (initialDataLoaded) debouncedSync('messages', messages);
+  }, [messages, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('hosting', hosting);
-  }, [hosting, isLoading]);
+    if (initialDataLoaded) debouncedSync('hosting', hosting);
+  }, [hosting, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('contracts', contracts);
-  }, [contracts, isLoading]);
+    if (initialDataLoaded) debouncedSync('contracts', contracts);
+  }, [contracts, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('clients', clients);
-  }, [clients, isLoading]);
+    if (initialDataLoaded) debouncedSync('clients', clients);
+  }, [clients, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('days', days);
-  }, [days, isLoading]);
+    if (initialDataLoaded) debouncedSync('days', days);
+  }, [days, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('months', months);
-  }, [months, isLoading]);
+    if (initialDataLoaded) debouncedSync('months', months);
+  }, [months, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('users', users);
-  }, [users, isLoading]);
+    if (initialDataLoaded) debouncedSync('users', users);
+  }, [users, initialDataLoaded]);
 
   useEffect(() => {
-    if (!isLoading) debouncedSync('pipeline_clients', pipelineClients);
-  }, [pipelineClients, isLoading]);
+    if (initialDataLoaded) debouncedSync('pipeline_clients', pipelineClients);
+  }, [pipelineClients, initialDataLoaded]);
 
   const [syncTimeouts, setSyncTimeouts] = useState<{[key: string]: NodeJS.Timeout}>({});
 
