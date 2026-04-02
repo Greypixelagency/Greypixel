@@ -352,7 +352,26 @@ export default function App() {
   const [syncTimeouts, setSyncTimeouts] = useState<{[key: string]: NodeJS.Timeout}>({});
 
   // Debounced sync helper to prevent too many rapid syncs
-  const debouncedSync = (table: string, data: any[]) => {
+  const debouncedSync = (table: string, data: any[], isDelete = false) => {
+    // For deletions, sync immediately instead of debouncing
+    if (isDelete) {
+      const previousData = previousDataRef.current[table] || [];
+      if (previousData.length > 0) {
+        const currentIds = new Set(data.map(item => item.id));
+        const toDelete = previousData.filter(item => !currentIds.has(item.id));
+        if (toDelete.length > 0) {
+          console.log(`Immediately deleting ${toDelete.length} items from ${table}`);
+          toDelete.forEach(item => {
+            supabase.from(table).delete().eq('id', item.id).then(() => {
+              console.log(`Deleted item ${item.id} from ${table}`);
+            });
+          });
+        }
+      }
+      previousDataRef.current[table] = data;
+      return;
+    }
+
     // Clear existing timeout for this table
     if (syncTimeouts[table]) {
       clearTimeout(syncTimeouts[table]);
@@ -773,26 +792,30 @@ export default function App() {
       toast.error('Cannot delete yourself');
       return;
     }
-    setUsers(users.filter(u => u.id !== id));
+    const newUsers = users.filter(u => u.id !== id);
+    setUsers(newUsers);
+    debouncedSync('users', newUsers, true);
     toast.success('User deleted successfully');
   };
 
   // Day Section Functions
+  const deleteDay = (id: string) => {
+    const newDays = days.filter(d => d.id !== id);
+    setDays(newDays);
+    debouncedSync('days', newDays, true);
+  };
+
   const addDay = () => {
     if (!newDayName.trim()) return;
     const newDay: DaySection = {
       id: Math.random().toString(36).substr(2, 9),
-      day: newDayName,
+      name: newDayName,
       tasks: [],
       isExpanded: true
     };
     setDays([...days, newDay]);
     setNewDayName('');
     setShowAddDay(false);
-  };
-
-  const deleteDay = (id: string) => {
-    setDays(days.filter(d => d.id !== id));
   };
 
   const toggleDay = (id: string) => {
@@ -848,7 +871,9 @@ export default function App() {
   };
 
   const deleteMonth = (id: string) => {
-    setMonths(months.filter(m => m.id !== id));
+    const newMonths = months.filter(m => m.id !== id);
+    setMonths(newMonths);
+    debouncedSync('months', newMonths, true);
   };
 
   const toggleMonth = (id: string) => {
@@ -926,7 +951,9 @@ export default function App() {
   };
 
   const deleteExpenseGroup = (groupId: string) => {
-    setExpenseGroups(expenseGroups.filter(g => g.id !== groupId));
+    const newExpenseGroups = expenseGroups.filter(g => g.id !== groupId);
+    setExpenseGroups(newExpenseGroups);
+    debouncedSync('expense_groups', newExpenseGroups, true);
     toast.success('Expense group deleted');
   };
 
@@ -1321,7 +1348,9 @@ export default function App() {
   };
 
   const deletePipelineClient = (id: string) => {
-    setPipelineClients(prev => prev.filter(c => c.id !== id));
+    const newPipelineClients = pipelineClients.filter(c => c.id !== id);
+    setPipelineClients(newPipelineClients);
+    debouncedSync('pipeline_clients', newPipelineClients, true);
     toast.success('Client removed from pipeline');
   };
 
@@ -1366,7 +1395,9 @@ export default function App() {
   };
 
   const deleteQuotation = (id: string) => {
-    setQuotations(quotations.filter(q => q.id !== id));
+    const newQuotations = quotations.filter(q => q.id !== id);
+    setQuotations(newQuotations);
+    debouncedSync('quotations', newQuotations, true);
     toast.success('Quotation deleted');
   };
 
@@ -1396,6 +1427,7 @@ export default function App() {
     const updatedInvoices = invoices.filter(i => i.id !== id);
     console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
     setInvoices(updatedInvoices);
+    debouncedSync('invoices', updatedInvoices, true);
     toast.success('Invoice deleted');
   };
 
@@ -2043,7 +2075,9 @@ export default function App() {
   };
 
   const deleteHosting = (id: string) => {
-    setHosting(hosting.filter(h => h.id !== id));
+    const newHosting = hosting.filter(h => h.id !== id);
+    setHosting(newHosting);
+    debouncedSync('hosting', newHosting, true);
   };
 
   const updateHosting = (id: string, updates: Partial<Hosting>) => {
@@ -2775,7 +2809,11 @@ export default function App() {
                           <ClientRow 
                             key={c.id} 
                             client={c} 
-                            onDelete={() => setClients(clients.filter(cl => cl.id !== c.id))}
+                            onDelete={() => {
+                              const newClients = clients.filter(cl => cl.id !== c.id);
+                              setClients(newClients);
+                              debouncedSync('clients', newClients, true);
+                            }}
                             onUpdate={(updates) => setClients(clients.map(cl => cl.id === c.id ? { ...cl, ...updates } : cl))}
                           />
                         ))}
@@ -2948,7 +2986,9 @@ export default function App() {
                           </button>
                           <button 
                             onClick={() => {
-                              setContracts(contracts.filter(c => c.id !== contract.id));
+                              const newContracts = contracts.filter(c => c.id !== contract.id);
+                              setContracts(newContracts);
+                              debouncedSync('contracts', newContracts, true);
                               toast.success('Contract deleted');
                             }}
                             className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
