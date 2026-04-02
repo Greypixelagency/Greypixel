@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode, FC, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ReactNode, FC, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './lib/supabase';
@@ -135,6 +135,9 @@ export default function App() {
   const [days, setDays] = useState<DaySection[]>([]);
   const [months, setMonths] = useState<MonthSection[]>([]);
 
+  // Ref to track previous data for deletion sync
+  const previousDataRef = useRef<{[key: string]: any[]}>({});
+
   // Fetch all data from Supabase on mount
   useEffect(() => {
     const fetchAllData = async () => {
@@ -213,6 +216,22 @@ export default function App() {
         if (daysData && daysData.length > 0) setDays(daysData);
         if (monthsData && monthsData.length > 0) setMonths(monthsData);
         setInitialDataLoaded(true);
+        
+        // Initialize previous data refs with fetched data
+        previousDataRef.current = {
+          pipeline_clients: pipelineData || [],
+          users: usersData || [],
+          quotations: quotationsData || [],
+          invoices: invoicesData || [],
+          payment_methods: paymentMethodsData || [],
+          expense_groups: expensesData || [],
+          messages: messagesData || [],
+          hosting: hostingData || [],
+          contracts: contractsData || [],
+          clients: clientsData || [],
+          days: daysData || [],
+          months: monthsData || []
+        };
       } catch (error) {
         console.error('Error fetching data from Supabase:', error);
         toast.error('Failed to load data from cloud storage');
@@ -225,7 +244,7 @@ export default function App() {
   }, []);
 
   // Helper to save data to Supabase with better error handling
-  const saveToSupabase = async (table: string, data: any[], showErrorToast = false) => {
+  const saveToSupabase = async (table: string, data: any[], showErrorToast = false, previousData: any[] = []) => {
     try {
       // Skip sync if no data - this prevents accidentally deleting all data
       if (!data || data.length === 0) {
@@ -253,6 +272,21 @@ export default function App() {
           toast.error(`${failures.length} items failed to sync to cloud. Your data is safe locally.`);
         }
         return false;
+      }
+
+      // Handle deletions - remove items that exist in Supabase but not in local data
+      if (previousData.length > 0) {
+        const currentIds = new Set(data.map(item => item.id));
+        const toDelete = previousData.filter(item => !currentIds.has(item.id));
+        
+        if (toDelete.length > 0) {
+          console.log(`Deleting ${toDelete.length} items from ${table}`);
+          await Promise.allSettled(
+            toDelete.map(item =>
+              supabase.from(table).delete().eq('id', item.id)
+            )
+          );
+        }
       }
 
       console.log(`Successfully synced ${successes.length} items to ${table}`);
@@ -326,7 +360,9 @@ export default function App() {
 
     // Set new timeout
     const timeout = setTimeout(() => {
-      saveToSupabase(table, data);
+      const previousData = previousDataRef.current[table] || [];
+      saveToSupabase(table, data, false, previousData);
+      previousDataRef.current[table] = data;
       setSyncTimeouts(prev => {
         const newTimeouts = {...prev};
         delete newTimeouts[table];
