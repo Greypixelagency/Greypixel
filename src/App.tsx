@@ -809,7 +809,7 @@ export default function App() {
     if (!newDayName.trim()) return;
     const newDay: DaySection = {
       id: Math.random().toString(36).substr(2, 9),
-      name: newDayName,
+      day: newDayName,
       tasks: [],
       isExpanded: true
     };
@@ -2099,8 +2099,8 @@ export default function App() {
   
   const filteredDays = days.map(d => ({
     ...d,
-    tasks: d.tasks.filter(t => t.text.toLowerCase().includes(searchQuery.toLowerCase()))
-  })).filter(d => d.tasks.length > 0 || d.day.toLowerCase().includes(searchQuery.toLowerCase()));
+    tasks: d.tasks ? d.tasks.filter(t => t.text && t.text.toLowerCase().includes(searchQuery.toLowerCase())) : []
+  })).filter(d => (d.tasks && d.tasks.length > 0) || (d.day && d.day.toLowerCase().includes(searchQuery.toLowerCase())));
 
   // Helper function to get month number for sorting
   const getMonthNumber = (monthName: string): number => {
@@ -2133,7 +2133,7 @@ export default function App() {
     .sort((a, b) => getMonthNumber(a.month) - getMonthNumber(b.month));
 
   const filteredDayTasks = allDayTasks.filter(t => 
-    t.text.toLowerCase().includes(searchQuery.toLowerCase())
+    t.text && t.text.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredHosting = hosting.filter(h => 
