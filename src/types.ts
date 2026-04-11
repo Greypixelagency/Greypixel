@@ -126,6 +126,7 @@ export interface Client {
   date: string;
   dueDate: string;
   isAutoCycle: boolean;
+  websiteLink?: string;
 }
 
 export interface Reminder {
@@ -179,4 +180,11 @@ export interface ExpenseGroup {
   name: string;
   expenses: Expense[];
   isClosed: boolean;
+}
+
+export interface WebsiteClient {
+  id: string;
+  name: string;
+  websiteLink: string;
+  createdAt: string;
 }

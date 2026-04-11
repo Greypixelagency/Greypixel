@@ -41,7 +41,7 @@ import {
   RotateCcw,
   RefreshCw
 } from 'lucide-react';
-import { Project, Task, Status, DaySection, User as UserType, ProjectStatus, PaymentStatus, MonthSection, Hosting, HostingPeriod, InvoiceStatus, Contract, PipelineClient, PipelineStatus, FollowUpStatus, UserRole, Quotation, QuotationItem, Client, Reminder, Invoice, InvoiceService, Expense, ExpenseGroup } from './types';
+import { Project, Task, Status, DaySection, User as UserType, ProjectStatus, PaymentStatus, MonthSection, Hosting, HostingPeriod, InvoiceStatus, Contract, PipelineClient, PipelineStatus, FollowUpStatus, UserRole, Quotation, QuotationItem, Client, Reminder, Invoice, InvoiceService, Expense, ExpenseGroup, WebsiteClient } from './types';
 
 const STORAGE_KEY = 'greypixel_dashboard_v2';
 const DAYS_STORAGE_KEY = 'greypixel_days_v1';
@@ -54,6 +54,7 @@ const REMINDERS_STORAGE_KEY = 'greypixel_reminders_v1';
 const INVOICES_STORAGE_KEY = 'greypixel_invoices_v1';
 const PAYMENT_METHODS_STORAGE_KEY = 'greypixel_payment_methods_v1';
 const EXPENSES_STORAGE_KEY = 'greypixel_expenses_v1';
+const WEBSITES_STORAGE_KEY = 'greypixel_websites_v1';
 
 const DEFAULT_CONTRACT_TEMPLATE = `CONTRACT AGREEMENT (Version: {{version}})
 
@@ -101,7 +102,7 @@ export default function App() {
     nodeEnv: import.meta.env.MODE
   });
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses' | 'websites'>('dashboard');
   const [revenueCurrency, setRevenueCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,6 +133,10 @@ export default function App() {
   const [hosting, setHosting] = useState<Hosting[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [websiteClients, setWebsiteClients] = useState<WebsiteClient[]>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(WEBSITES_STORAGE_KEY) : null;
+    return saved ? JSON.parse(saved) : [];
+  });
   const [days, setDays] = useState<DaySection[]>([]);
   const [months, setMonths] = useState<MonthSection[]>([]);
 
@@ -155,7 +160,8 @@ export default function App() {
           { data: contractsData, error: contractsError },
           { data: clientsData, error: clientsError },
           { data: daysData, error: daysError },
-          { data: monthsData, error: monthsError }
+          { data: monthsData, error: monthsError },
+          { data: websitesData, error: websitesError }
         ] = await Promise.all([
           supabase.from('pipeline_clients').select('*'),
           supabase.from('users').select('*'),
@@ -168,10 +174,11 @@ export default function App() {
           supabase.from('contracts').select('*'),
           supabase.from('clients').select('*'),
           supabase.from('days').select('*'),
-          supabase.from('months').select('*')
+          supabase.from('months').select('*'),
+          supabase.from('website_clients').select('*')
         ]);
 
-        // Check for Supabase errors
+        // Check for Supabase errors (exclude website_clients as it may not exist yet)
         const errors = [
           { name: 'pipeline_clients', error: pipelineError },
           { name: 'users', error: usersError },
@@ -215,6 +222,7 @@ export default function App() {
         if (clientsData && clientsData.length > 0) setClients(clientsData);
         if (daysData && daysData.length > 0) setDays(daysData);
         if (monthsData && monthsData.length > 0) setMonths(monthsData);
+        if (websitesData && websitesData.length > 0) setWebsiteClients(websitesData);
         setInitialDataLoaded(true);
         
         // Initialize previous data refs with fetched data
@@ -230,7 +238,8 @@ export default function App() {
           contracts: contractsData || [],
           clients: clientsData || [],
           days: daysData || [],
-          months: monthsData || []
+          months: monthsData || [],
+          website_clients: websitesData || []
         };
       } catch (error) {
         console.error('Error fetching data from Supabase:', error);
@@ -348,6 +357,10 @@ export default function App() {
   useEffect(() => {
     if (initialDataLoaded) debouncedSync('pipeline_clients', pipelineClients);
   }, [pipelineClients, initialDataLoaded]);
+
+  useEffect(() => {
+    if (initialDataLoaded) debouncedSync('website_clients', websiteClients);
+  }, [websiteClients, initialDataLoaded]);
 
   const [syncTimeouts, setSyncTimeouts] = useState<{[key: string]: NodeJS.Timeout}>({});
 
@@ -513,6 +526,10 @@ export default function App() {
   };
 
   const [showAddClient, setShowAddClient] = useState(false);
+  const [showAddWebsite, setShowAddWebsite] = useState(false);
+  const [editingWebsite, setEditingWebsite] = useState<WebsiteClient | null>(null);
+  const [websiteSearchQuery, setWebsiteSearchQuery] = useState('');
+  const [newWebsiteForm, setNewWebsiteForm] = useState({ name: '', websiteLink: '' });
   const [newClient, setNewClient] = useState<Partial<Client>>({
     name: '',
     status: 'Active',
@@ -654,6 +671,10 @@ export default function App() {
       localStorage.removeItem(CURRENT_USER_KEY);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem(WEBSITES_STORAGE_KEY, JSON.stringify(websiteClients));
+  }, [websiteClients]);
 
   // Set initial tab based on role if current tab is not allowed
   useEffect(() => {
@@ -1357,6 +1378,40 @@ export default function App() {
   const updatePipelineStatus = (id: string, status: PipelineStatus) => {
     setPipelineClients(prev => prev.map(c => c.id === id ? { ...c, status } : c));
     toast.success(`Status updated to ${status}`);
+  };
+
+  const addWebsiteClient = () => {
+    if (!newWebsiteForm.name || !newWebsiteForm.websiteLink) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    const websiteEntry: WebsiteClient = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: newWebsiteForm.name,
+      websiteLink: newWebsiteForm.websiteLink,
+      createdAt: new Date().toISOString()
+    };
+    setWebsiteClients([...websiteClients, websiteEntry]);
+    setShowAddWebsite(false);
+    setNewWebsiteForm({ name: '', websiteLink: '' });
+    toast.success('Website client added successfully');
+  };
+
+  const updateWebsiteClient = () => {
+    if (!editingWebsite || !editingWebsite.name || !editingWebsite.websiteLink) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    setWebsiteClients(websiteClients.map(c => c.id === editingWebsite.id ? editingWebsite : c));
+    setEditingWebsite(null);
+    toast.success('Website client updated successfully');
+  };
+
+  const deleteWebsiteClient = (id: string) => {
+    const newWebsiteClients = websiteClients.filter(c => c.id !== id);
+    setWebsiteClients(newWebsiteClients);
+    debouncedSync('website_clients', newWebsiteClients, true);
+    toast.success('Website client deleted');
   };
 
   const addQuotation = () => {
@@ -2304,10 +2359,10 @@ export default function App() {
           opacity: 1
         }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="fixed lg:relative inset-y-0 left-0 bg-white border-r border-gray-100 flex flex-col shrink-0 overflow-hidden z-50 shadow-2xl lg:shadow-none"
+        className="fixed lg:relative inset-y-0 left-0 bg-white border-r border-gray-100 flex flex-col shrink-0 z-50 shadow-2xl lg:shadow-none"
       >
-        <div className="p-2 w-[280px]">
-            <div className="flex items-center justify-between mb-6 mt-6">
+        <div className="w-[280px] h-screen flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-6 mt-6 px-2 shrink-0">
               <div className="flex items-center gap-3">
                 <img 
                   src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10" 
@@ -2324,7 +2379,7 @@ export default function App() {
               </button>
             </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-2 px-2 overflow-y-auto flex-1 min-h-0" style={{ overflowY: 'auto' }}>
             {(currentUser.role === 'Admin') && (
               <SidebarItem 
                 icon={<LayoutDashboard size={20} />} 
@@ -2408,6 +2463,14 @@ export default function App() {
                   count={hosting.length}
                   setIsSidebarOpen={setIsSidebarOpen}
                 />
+                <SidebarItem 
+                  icon={<Globe size={20} />} 
+                  label="Websites" 
+                  active={activeTab === 'websites'} 
+                  onClick={() => setActiveTab('websites')} 
+                  count={websiteClients.length}
+                  setIsSidebarOpen={setIsSidebarOpen}
+                />
               </>
             )}
             {(currentUser.role === 'Admin' || currentUser.role === 'Pipeline') && (
@@ -2423,7 +2486,7 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="mt-auto p-6 border-t border-gray-50">
+        <div className="mt-auto p-6 border-t border-gray-50 shrink-0 px-2">
           <div className="flex items-center justify-between gap-3 p-0">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 overflow-hidden shrink-0">
@@ -2899,6 +2962,112 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'websites' && (
+              <motion.div
+                key="websites"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-8"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-3xl font-black text-gray-900">Website Clients</h2>
+                    <p className="text-gray-400 font-medium mt-1">Manage and track your website clients.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setShowAddWebsite(true)}
+                      className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
+                    >
+                      <Plus size={20} />
+                      Add Client
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input 
+                      type="text"
+                      placeholder="Search by name..."
+                      value={websiteSearchQuery}
+                      onChange={(e) => setWebsiteSearchQuery(e.target.value)}
+                      className="w-full pl-12 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                    />
+                  </div>
+                  <div className="px-6 py-4 bg-gray-900 text-white rounded-2xl font-black text-sm">
+                    Total: {websiteClients.length}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {websiteClients
+                    .filter(c => c.name.toLowerCase().includes(websiteSearchQuery.toLowerCase()))
+                    .map(client => (
+                      <div key={client.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-bl-[5rem] -mr-16 -mt-16 group-hover:bg-gray-100 transition-colors" />
+                        
+                        <div className="relative">
+                          <div className="flex items-start justify-between mb-6">
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
+                              <Globe size={24} />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => {
+                                  setEditingWebsite(client);
+                                }}
+                                className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                title="Edit"
+                              >
+                                <Edit size={18} />
+                              </button>
+                              <button 
+                                onClick={() => deleteWebsiteClient(client.id)}
+                                className="text-gray-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
+                                title="Delete"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <h3 className="text-lg sm:text-xl font-black text-gray-900 truncate">{client.name}</h3>
+                          
+                          {client.websiteLink && (
+                            <a 
+                              href={client.websiteLink.startsWith('http') ? client.websiteLink : `https://${client.websiteLink}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 font-medium text-xs sm:text-sm mt-1 block truncate flex items-center gap-1"
+                            >
+                              <Globe size={14} />
+                              {client.websiteLink}
+                            </a>
+                          )}
+
+                          <div className="mt-8 pt-8 border-t border-gray-50">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                              Added: {new Date(client.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+
+                {websiteClients.filter(c => c.name.toLowerCase().includes(websiteSearchQuery.toLowerCase())).length === 0 && (
+                  <div className="text-center py-20">
+                    <Globe size={48} className="mx-auto text-gray-200 mb-4" />
+                    <p className="text-gray-400 font-medium">No website clients found.</p>
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -4720,6 +4889,130 @@ export default function App() {
                   className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 mt-4"
                 >
                   Create Hosting Entry
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Website Modal */}
+      <AnimatePresence>
+        {showAddWebsite && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddWebsite(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-xl rounded-[2rem] sm:rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden"
+            >
+              <div className="p-6 sm:p-10 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900">Add Website Client</h2>
+                  <p className="text-gray-400 font-medium mt-1">Add a new website client.</p>
+                </div>
+                <button onClick={() => setShowAddWebsite(false)} className="p-3 hover:bg-gray-50 rounded-2xl text-gray-400 transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6 sm:p-10 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
+                  <input 
+                    type="text" 
+                    value={newWebsiteForm.name}
+                    onChange={(e) => setNewWebsiteForm({ ...newWebsiteForm, name: e.target.value })}
+                    placeholder="Enter client or company name"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Website Link</label>
+                  <input 
+                    type="text" 
+                    value={newWebsiteForm.websiteLink}
+                    onChange={(e) => setNewWebsiteForm({ ...newWebsiteForm, websiteLink: e.target.value })}
+                    placeholder="www.example.com"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  />
+                </div>
+
+                <button 
+                  onClick={addWebsiteClient}
+                  className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
+                >
+                  Add Client
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Website Modal */}
+      <AnimatePresence>
+        {editingWebsite && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingWebsite(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-xl rounded-[2rem] sm:rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden"
+            >
+              <div className="p-6 sm:p-10 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900">Edit Website Client</h2>
+                  <p className="text-gray-400 font-medium mt-1">Update website client details.</p>
+                </div>
+                <button onClick={() => setEditingWebsite(null)} className="p-3 hover:bg-gray-50 rounded-2xl text-gray-400 transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6 sm:p-10 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
+                  <input 
+                    type="text" 
+                    value={editingWebsite.name}
+                    onChange={(e) => setEditingWebsite({ ...editingWebsite, name: e.target.value })}
+                    placeholder="Enter client or company name"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Website Link</label>
+                  <input 
+                    type="text" 
+                    value={editingWebsite.websiteLink}
+                    onChange={(e) => setEditingWebsite({ ...editingWebsite, websiteLink: e.target.value })}
+                    placeholder="www.example.com"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
+                  />
+                </div>
+
+                <button 
+                  onClick={updateWebsiteClient}
+                  className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
+                >
+                  Update Client
                 </button>
               </div>
             </motion.div>
