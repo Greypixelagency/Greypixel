@@ -2196,7 +2196,8 @@ export default function App() {
   );
 
   const currentMonthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
-  const latestMonth = months.length > 0 ? months[months.length - 1] : null;
+  const sortedMonths = [...months].sort((a, b) => getMonthNumber(b.month) - getMonthNumber(a.month));
+  const latestMonth = sortedMonths.length > 0 ? sortedMonths[0] : null;
   const latestMonthProjects = latestMonth ? latestMonth.projects.length : 0;
   const latestMonthRevenue = latestMonth ? latestMonth.projects.reduce((acc, p) => acc + p.cost, 0) : 0;
   const latestMonthName = latestMonth ? latestMonth.month : currentMonthName;
