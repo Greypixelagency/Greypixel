@@ -2670,7 +2670,7 @@ export default function App() {
                       </div>
               <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
                         <div className="space-y-4">
-                          {months.flatMap(m => m.projects).slice(0, 5).map(project => (
+                          {[...months].sort((a, b) => getMonthNumber(b.month) - getMonthNumber(a.month)).flatMap(m => m.projects).slice(0, 5).map(project => (
                             <div key={project.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all">
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
