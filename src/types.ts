@@ -144,6 +144,14 @@ export interface InvoiceService {
   cost: number;
 }
 
+export interface PaymentRecord {
+  id: string;
+  amount: number;
+  date: string;
+  method?: string;
+  note?: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -162,6 +170,8 @@ export interface Invoice {
   notes?: string;
   currency: string;
   createdAt: string;
+  status?: InvoiceStatus;
+  payments?: PaymentRecord[];
 }
 
 export interface SavedPaymentMethod {

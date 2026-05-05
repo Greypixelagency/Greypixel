@@ -476,6 +476,12 @@ export default function App() {
     paymentMethod: savedPaymentMethods[0]?.method || ''
   });
 
+  // New states for pay dropdown
+  const [payDropdownInvoiceId, setPayDropdownInvoiceId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState(0);
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payMethod, setPayMethod] = useState('');
+
   const filteredMessages = messages.filter(msg => {
     if (!currentUser) return false;
     if (currentUser.role === 'Tasks') return false;
@@ -1477,13 +1483,79 @@ export default function App() {
     toast.success('Quotation updated successfully');
   };
 
-  const deleteInvoice = (id: string) => {
-    console.log(`Deleting invoice with id: ${id}`);
-    const updatedInvoices = invoices.filter(i => i.id !== id);
-    console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
+   const deleteInvoice = (id: string) => {
+     console.log(`Deleting invoice with id: ${id}`);
+     const updatedInvoices = invoices.filter(i => i.id !== id);
+     console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
+     setInvoices(updatedInvoices);
+     debouncedSync('invoices', updatedInvoices, true);
+     toast.success('Invoice deleted');
+   };
+
+    const markInvoiceAsPaid = (id: string) => {
+      const invoice = invoices.find(i => i.id === id);
+      const paymentAmount = invoice?.dueAmount || 0;
+      const newPayment: PaymentRecord = {
+        id: Date.now().toString(),
+        amount: paymentAmount,
+        date: new Date().toISOString().split('T')[0],
+        method: invoice?.paymentMethod
+      };
+
+      const updatedInvoices = invoices.map(i => {
+        if (i.id === id) {
+          const payments = [...(i.payments || []), newPayment];
+          const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+          const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
+          return { ...i, payments, status };
+        }
+        return i;
+      });
+      setInvoices(updatedInvoices);
+      toast.success('Invoice marked as paid');
+    };
+
+  const recordPartialPayment = (id: string, amount: number, method?: string, note?: string) => {
+    if (amount <= 0) {
+      toast.error('Payment amount must be greater than zero');
+      return;
+    }
+
+    const invoice = invoices.find(i => i.id === id);
+    if (!invoice) return;
+
+    const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+    if (currentPaid + amount > invoice.dueAmount) {
+      toast.error(`Payment exceeds remaining due amount. Remaining: ${invoice.currency} ${(invoice.dueAmount - currentPaid).toLocaleString()}`);
+      return;
+    }
+
+    const newPayment: PaymentRecord = {
+      id: Date.now().toString(),
+      amount,
+      date: new Date().toISOString().split('T')[0],
+      method,
+      note
+    };
+
+    const updatedInvoices = invoices.map(i => {
+      if (i.id === id) {
+        const payments = [...(i.payments || []), newPayment];
+        const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+        const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
+        return { ...i, payments, status };
+      }
+      return i;
+    });
     setInvoices(updatedInvoices);
-    debouncedSync('invoices', updatedInvoices, true);
-    toast.success('Invoice deleted');
+    toast.success(`Payment of ${invoice.currency} ${amount.toLocaleString()} recorded`);
+  };
+
+  const closePayDropdown = () => {
+    setPayDropdownInvoiceId(null);
+    setPayAmount(0);
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayMethod('');
   };
 
   const addInvoice = () => {
@@ -1510,11 +1582,12 @@ export default function App() {
       upfrontPercentage: newInvoice.upfrontPercentage || 0,
       upfrontAmount,
       dueAmount,
-      paymentMethod: newInvoice.paymentMethod || '',
-      notes: newInvoice.notes,
-      currency: newInvoice.currency || 'PKR',
-      createdAt: new Date().toISOString()
-    };
+       paymentMethod: newInvoice.paymentMethod || '',
+       notes: newInvoice.notes,
+       currency: newInvoice.currency || 'PKR',
+       createdAt: new Date().toISOString(),
+       status: 'Pending'
+     };
 
     setInvoices([...invoices, invoice]);
     
@@ -3444,88 +3517,115 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {invoices.map(invoice => (
-                    <div key={invoice.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-bl-[5rem] -mr-16 -mt-16 group-hover:bg-gray-100 transition-colors" />
-                      
-                      <div className="relative">
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
-                            <DollarSign size={24} />
-                          </div>
-                          <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-400">
-                            {invoice.invoiceNumber}
-                          </span>
-                        </div>
+                <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Invoice #</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Date</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {invoices.map(invoice => (
+                          <tr
+                            key={invoice.id}
+                            className="hover:bg-gray-50/30 transition-colors group cursor-pointer"
+                            onClick={() => setViewingInvoice(invoice)}
+                          >
+                            <td className="px-8 py-6">
+                              <p className="font-black text-gray-900">{invoice.invoiceNumber}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-gray-900">{invoice.clientName}</p>
+                              <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-wider">{invoice.clientBusinessName}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="text-sm text-gray-600">{invoice.dueDate}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-gray-900">{invoice.currency} {invoice.dueAmount.toLocaleString()}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                invoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
+                                invoice.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
+                                'bg-gray-50 text-gray-400'
+                              }`}>
+                                {invoice.status || 'Pending'}
+                              </span>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {invoice.status !== 'Completed' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); markInvoiceAsPaid(invoice.id); }}
+                                    className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-xl transition-all"
+                                    title="Mark as Paid"
+                                  >
+                                    <CheckCircle2 size={18} />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); downloadInvoicePDF(invoice); }}
+                                  className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                  title="Download PDF"
+                                >
+                                  <FileText size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingInvoice(invoice); setShowEditInvoice(true); }}
+                                  className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                  title="Edit Invoice"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); deleteInvoice(invoice.id); }}
+                                  className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
+                                  title="Delete Invoice"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                        <h3 className="text-lg sm:text-xl font-black text-gray-900 truncate">{invoice.clientName}</h3>
-                        <p className="text-gray-400 font-medium text-xs sm:text-sm mt-1">{invoice.clientBusinessName}</p>
-
-                        <div className="mt-8 grid grid-cols-2 gap-3">
-                          <div className="bg-rose-50/50 p-3 sm:p-4 rounded-2xl border border-rose-100/50 flex flex-col justify-center">
-                            <span className="text-[9px] sm:text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Due Date</span>
-                            <span className="text-rose-600 font-bold text-xs sm:text-sm">{invoice.dueDate}</span>
-                          </div>
-                          <div className="bg-emerald-50/50 p-3 sm:p-4 rounded-2xl border border-emerald-100/50 flex flex-col justify-center">
-                            <span className="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Total Due</span>
-                            <span className="text-emerald-600 font-bold text-xs sm:text-sm">{invoice.currency || 'PKR'} {invoice.dueAmount.toLocaleString()}</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-8 pt-8 border-t border-gray-50 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                              {invoice.services.length} {invoice.services.length === 1 ? 'Service' : 'Services'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => downloadInvoicePDF(invoice)}
-                              className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
-                              title="Download PDF"
-                            >
-                              <FileText size={18} />
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setEditingInvoice(invoice);
-                                setShowEditInvoice(true);
-                              }}
-                              className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
-                              title="Edit Invoice"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button 
-                              onClick={() => deleteInvoice(invoice.id)}
-                              className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
-                              title="Delete Invoice"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </div>
+                  {invoices.length > 0 && (
+                    <div className="bg-gray-50/50 border-t border-gray-100 px-8 py-6">
+                      <div className="flex justify-end items-center gap-4">
+                        <span className="text-sm font-black text-gray-600 uppercase tracking-widest">Total Invoiced:</span>
+                        <span className="text-xl font-black text-gray-900">
+                          {invoices.reduce((sum, inv) => sum + inv.dueAmount, 0).toLocaleString()} PKR
+                        </span>
                       </div>
-                    </div>
-                  ))}
-
-                  {invoices.length === 0 && (
-                    <div className="col-span-full bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
-                        <DollarSign size={40} />
-                      </div>
-                      <h3 className="text-xl font-black text-gray-900">No invoices created yet</h3>
-                      <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate detailed invoices with service breakdowns and upfront calculations.</p>
-                      <button 
-                        onClick={() => setShowAddInvoice(true)}
-                        className="mt-8 text-gray-900 font-black text-sm hover:underline"
-                      >
-                        Create your first invoice
-                      </button>
                     </div>
                   )}
                 </div>
+
+                {invoices.length === 0 && (
+                  <div className="bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
+                      <DollarSign size={40} />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900">No invoices created yet</h3>
+                    <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate detailed invoices with service breakdowns and upfront calculations.</p>
+                    <button 
+                      onClick={() => setShowAddInvoice(true)}
+                      className="mt-8 text-gray-900 font-black text-sm hover:underline"
+                    >
+                      Create your first invoice
+                    </button>
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -3927,6 +4027,174 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+      {/* View Invoice Modal */}
+      <AnimatePresence>
+        {viewingInvoice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingInvoice(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[2rem] sm:rounded-[3rem] shadow-2xl border border-gray-100 flex flex-col"
+            >
+              <div className="p-6 sm:p-10 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900">Invoice Preview</h2>
+                  <p className="text-gray-400 font-medium mt-1">Invoice {viewingInvoice.invoiceNumber} for {viewingInvoice.clientName}.</p>
+                </div>
+                <button onClick={() => setViewingInvoice(null)} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-50 rounded-xl transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 sm:p-10 custom-scrollbar">
+                <div className="bg-white shadow-sm border border-gray-200 rounded-[1.5rem] sm:rounded-[2rem] p-6 sm:p-12 max-w-2xl mx-auto space-y-8">
+
+                  {/* Invoice Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
+                        <DollarSign size={28} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Invoice Number</p>
+                        <p className="text-lg font-black text-gray-900">{viewingInvoice.invoiceNumber}</p>
+                      </div>
+                    </div>
+                    <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      viewingInvoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
+                      viewingInvoice.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
+                      'bg-gray-50 text-gray-400'
+                    }`}>
+                      {viewingInvoice.status || 'Pending'}
+                    </span>
+                  </div>
+
+                  {/* Client & Company Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Bill To</p>
+                      <p className="font-bold text-gray-900">{viewingInvoice.clientName}</p>
+                      <p className="text-gray-500 text-sm">{viewingInvoice.clientBusinessName}</p>
+                      <p className="text-gray-500 text-sm whitespace-pre-wrap">{viewingInvoice.clientAddress}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">From</p>
+                      <p className="font-bold text-gray-900">{viewingInvoice.companyName}</p>
+                      <p className="text-gray-500 text-sm whitespace-pre-wrap">{viewingInvoice.companyAddress}</p>
+                    </div>
+                  </div>
+
+                  {/* Invoice Details */}
+                  <div className="grid grid-cols-2 gap-6 py-6 border-y border-gray-100">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Invoice Date</p>
+                      <p className="font-bold text-gray-900">{viewingInvoice.createdAt?.split('T')[0]}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Due Date</p>
+                      <p className="font-bold text-gray-900">{viewingInvoice.dueDate}</p>
+                    </div>
+                  </div>
+
+                  {/* Services Table */}
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Services</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Service</th>
+                            <th className="text-right py-3 text-[10px] font-black text-gray-400 uppercase tracking-wider">Cost</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewingInvoice.services?.map((service, idx) => (
+                            <tr key={service.id || idx} className="border-b border-gray-50">
+                              <td className="py-3 text-gray-700">{service.service}</td>
+                              <td className="py-3 text-right font-bold text-gray-900">{viewingInvoice.currency} {service.cost.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Totals */}
+                  <div className="space-y-3 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Subtotal</span>
+                      <span className="font-bold text-gray-900">{viewingInvoice.currency} {viewingInvoice.subTotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Upfront ({viewingInvoice.upfrontPercentage}%)</span>
+                      <span className="font-bold text-rose-600">-{viewingInvoice.currency} {viewingInvoice.upfrontAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-black">
+                      <span>Total Due</span>
+                      <span className="text-gray-900">{viewingInvoice.currency} {viewingInvoice.dueAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Payment Method & Notes */}
+                  {viewingInvoice.paymentMethod && (
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Payment Method</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 px-4 py-3 rounded-xl">{viewingInvoice.paymentMethod}</p>
+                    </div>
+                  )}
+
+                  {viewingInvoice.notes && (
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Notes</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 px-4 py-3 rounded-xl whitespace-pre-wrap">{viewingInvoice.notes}</p>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+              <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
+                {viewingInvoice.status !== 'Completed' && (
+                  <button
+                    onClick={() => {
+                      markInvoiceAsPaid(viewingInvoice.id);
+                      setViewingInvoice(null);
+                    }}
+                    className="flex-1 bg-emerald-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
+                  >
+                    Mark as Paid
+                  </button>
+                )}
+                <button
+                  onClick={() => downloadInvoicePDF(viewingInvoice)}
+                  className="flex-1 bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
+                >
+                  Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingInvoice(viewingInvoice);
+                    setShowEditInvoice(true);
+                    setViewingInvoice(null);
+                  }}
+                  className="px-10 py-5 bg-white border border-gray-200 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all"
+                >
+                  Edit
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Add Pipeline Client Modal */}
       <AnimatePresence>
         {showAddPipeline && (
