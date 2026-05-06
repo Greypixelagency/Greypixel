@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, ReactNode, FC, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './lib/supabase';
-import { 
-  Plus, 
-  Trash2, 
-  ChevronDown, 
-  ChevronRight, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Clock,
   AlertCircle,
   Calendar,
   X,
@@ -44,7 +44,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { ReportData } from './components/Reports';
-import { 
+import {
   Project, Task, Status, DaySection, User as UserType, ProjectStatus, PaymentStatus, MonthSection, Hosting, HostingPeriod, InvoiceStatus, Contract, PipelineClient, PipelineStatus, FollowUpStatus, UserRole, Quotation, QuotationItem, Client, Reminder, Invoice, InvoiceService, Expense, ExpenseGroup, WebsiteClient, PaymentRecord
 } from './types';
 import Reports from './components/Reports';
@@ -108,12 +108,12 @@ export default function App() {
     nodeEnv: import.meta.env.MODE
   });
 
-   const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses' | 'websites' | 'reports'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses' | 'websites' | 'reports'>('dashboard');
   const [revenueCurrency, setRevenueCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true);
   const [isLoading, setIsLoading] = useState(true);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  
+
   // Auth state
   const [currentUser, setCurrentUser] = useState<UserType | null>(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(CURRENT_USER_KEY) : null;
@@ -147,7 +147,7 @@ export default function App() {
   const [months, setMonths] = useState<MonthSection[]>([]);
 
   // Ref to track previous data for deletion sync
-  const previousDataRef = useRef<{[key: string]: any[]}>({});
+  const previousDataRef = useRef<{ [key: string]: any[] }>({});
 
   // Fetch all data from Supabase on mount
   useEffect(() => {
@@ -202,8 +202,8 @@ export default function App() {
 
         if (errors.length > 0) {
           console.error('Supabase fetch errors:', errors);
-          const hasAuthError = errors.some(e => 
-            e.error?.message?.includes('JWT') || 
+          const hasAuthError = errors.some(e =>
+            e.error?.message?.includes('JWT') ||
             e.error?.message?.includes('auth') ||
             e.error?.message?.includes('permission') ||
             e.error?.message?.includes('row-level security')
@@ -230,7 +230,7 @@ export default function App() {
         if (monthsData && monthsData.length > 0) setMonths(monthsData);
         if (websitesData && websitesData.length > 0) setWebsiteClients(websitesData);
         setInitialDataLoaded(true);
-        
+
         // Initialize previous data refs with fetched data
         previousDataRef.current = {
           pipeline_clients: pipelineData || [],
@@ -258,69 +258,69 @@ export default function App() {
     fetchAllData();
   }, []);
 
-   // Helper to save data to Supabase with better error handling
-   const saveToSupabase = async (table: string, data: any[], showErrorToast = false, previousData: any[] = []) => {
-     try {
-       if (!data || data.length === 0) {
-         console.log(`Skipping sync for ${table}: no data to sync`);
-         return true;
-       }
+  // Helper to save data to Supabase with better error handling
+  const saveToSupabase = async (table: string, data: any[], showErrorToast = false, previousData: any[] = []) => {
+    try {
+      if (!data || data.length === 0) {
+        console.log(`Skipping sync for ${table}: no data to sync`);
+        return true;
+      }
 
-       console.log(`Syncing ${data.length} items to ${table}`);
+      console.log(`Syncing ${data.length} items to ${table}`);
 
-       // Prepare data: only include fields that exist in the table
-       // This prevents errors when local schema differs from Supabase schema
-       const cleanedData = data.map(item => {
-         const cleaned: Record<string, any> = {};
-         Object.keys(item).forEach(key => {
-           const value = item[key];
-           if (value !== undefined && value !== null) {
-             cleaned[key] = value;
-           }
-         });
-         return cleaned;
-       });
+      // Prepare data: only include fields that exist in the table
+      // This prevents errors when local schema differs from Supabase schema
+      const cleanedData = data.map(item => {
+        const cleaned: Record<string, any> = {};
+        Object.keys(item).forEach(key => {
+          const value = item[key];
+          if (value !== undefined && value !== null) {
+            cleaned[key] = value;
+          }
+        });
+        return cleaned;
+      });
 
-       const results = await Promise.all(
-         cleanedData.map(item =>
-           supabase.from(table).upsert(item, {
-             onConflict: 'id'
-           })
-         )
-       );
+      const results = await Promise.all(
+        cleanedData.map(item =>
+          supabase.from(table).upsert(item, {
+            onConflict: 'id'
+          })
+        )
+      );
 
-       const errors = results.filter(r => r.error);
-       if (errors.length > 0) {
-         console.error(`${errors.length} items failed to sync to ${table}:`, errors);
-         if (showErrorToast) {
-           const errMsgs = errors.map(e => e.error?.message || 'Unknown error').join('; ');
-           toast.error(`Sync failed: ${errMsgs}`);
-         }
-         return false;
-       }
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        console.error(`${errors.length} items failed to sync to ${table}:`, errors);
+        if (showErrorToast) {
+          const errMsgs = errors.map(e => e.error?.message || 'Unknown error').join('; ');
+          toast.error(`Sync failed: ${errMsgs}`);
+        }
+        return false;
+      }
 
-       if (previousData.length > 0) {
-         const currentIds = new Set(cleanedData.map(item => item.id));
-         const toDelete = previousData.filter(item => !currentIds.has(item.id));
-         if (toDelete.length > 0) {
-           console.log(`Deleting ${toDelete.length} items from ${table}`);
-           await Promise.allSettled(
-             toDelete.map(item =>
-               supabase.from(table).delete().eq('id', item.id)
-             )
-           );
-         }
-       }
+      if (previousData.length > 0) {
+        const currentIds = new Set(cleanedData.map(item => item.id));
+        const toDelete = previousData.filter(item => !currentIds.has(item.id));
+        if (toDelete.length > 0) {
+          console.log(`Deleting ${toDelete.length} items from ${table}`);
+          await Promise.allSettled(
+            toDelete.map(item =>
+              supabase.from(table).delete().eq('id', item.id)
+            )
+          );
+        }
+      }
 
-       return true;
-     } catch (error) {
-       console.error(`Unexpected error syncing to ${table}:`, error);
-       if (showErrorToast) {
-         toast.error(`Sync error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-       }
-       return false;
-     }
-   };
+      return true;
+    } catch (error) {
+      console.error(`Unexpected error syncing to ${table}:`, error);
+      if (showErrorToast) {
+        toast.error(`Sync error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      return false;
+    }
+  };
 
   // Sync states to Supabase with debouncing - only after initial data is loaded
   useEffect(() => {
@@ -375,7 +375,7 @@ export default function App() {
     if (initialDataLoaded) debouncedSync('website_clients', websiteClients);
   }, [websiteClients, initialDataLoaded]);
 
-  const [syncTimeouts, setSyncTimeouts] = useState<{[key: string]: NodeJS.Timeout}>({});
+  const [syncTimeouts, setSyncTimeouts] = useState<{ [key: string]: NodeJS.Timeout }>({});
 
   // Debounced sync helper to prevent too many rapid syncs
   const debouncedSync = (table: string, data: any[], isDelete = false) => {
@@ -409,13 +409,13 @@ export default function App() {
       saveToSupabase(table, data, false, previousData);
       previousDataRef.current[table] = data;
       setSyncTimeouts(prev => {
-        const newTimeouts = {...prev};
+        const newTimeouts = { ...prev };
         delete newTimeouts[table];
         return newTimeouts;
       });
     }, 2000); // 2 second debounce
 
-    setSyncTimeouts(prev => ({...prev, [table]: timeout}));
+    setSyncTimeouts(prev => ({ ...prev, [table]: timeout }));
   };
   const [newPipelineClient, setNewPipelineClient] = useState<Partial<PipelineClient>>({
     name: '',
@@ -489,12 +489,12 @@ export default function App() {
     paymentMethod: savedPaymentMethods[0]?.method || ''
   });
 
-   // New states for pay dropdown
-   const [payDropdownInvoiceId, setPayDropdownInvoiceId] = useState<string | null>(null);
-   const [payAmount, setPayAmount] = useState(0);
-   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
-   const [payMethod, setPayMethod] = useState('');
-   const [payNote, setPayNote] = useState('');
+  // New states for pay dropdown
+  const [payDropdownInvoiceId, setPayDropdownInvoiceId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState(0);
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payMethod, setPayMethod] = useState('');
+  const [payNote, setPayNote] = useState('');
 
   const filteredMessages = messages.filter(msg => {
     if (!currentUser) return false;
@@ -516,12 +516,12 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
-    
+
     // Determine the "home" tab for the user to show notifications
     const isHomeTab = (currentUser.role === 'Admin' && activeTab === 'dashboard') ||
-                     (currentUser.role === 'Pipeline' && activeTab === 'pipeline') ||
-                     (currentUser.role === 'Projects' && activeTab === 'projects') ||
-                     (currentUser.role === 'Tasks' && activeTab === 'tasks');
+      (currentUser.role === 'Pipeline' && activeTab === 'pipeline') ||
+      (currentUser.role === 'Projects' && activeTab === 'projects') ||
+      (currentUser.role === 'Tasks' && activeTab === 'tasks');
 
     if (isHomeTab && filteredMessages.length > 0) {
       playNotificationSound();
@@ -602,10 +602,10 @@ export default function App() {
         // Filter out old hosting reminders that are no longer valid (not in reminderMessages)
         const currentHostingReminderIds = new Set(reminderMessages.map(r => r.id));
         const otherMessages = prev.filter(m => m.category !== 'hosting' || currentHostingReminderIds.has(m.id));
-        
+
         const existingIds = new Set(otherMessages.map(m => m.id));
         const newReminders = reminderMessages.filter(r => !existingIds.has(r.id));
-        
+
         if (newReminders.length === 0 && otherMessages.length === prev.length) return prev;
         return [...otherMessages, ...newReminders];
       });
@@ -623,7 +623,7 @@ export default function App() {
   useEffect(() => {
     const now = new Date();
     const needsUpdate = clients.some(c => c.isAutoCycle && c.status === 'Active' && c.dueDate && new Date(c.dueDate) < now);
-    
+
     if (needsUpdate) {
       setClients(prev => prev.map(client => {
         if (client.isAutoCycle && client.status === 'Active' && client.dueDate) {
@@ -667,10 +667,10 @@ export default function App() {
       setMessages(prev => {
         const currentClientReminderIds = new Set(reminderMessages.map(r => r.id));
         const otherMessages = prev.filter(m => m.category !== 'clients' || currentClientReminderIds.has(m.id));
-        
+
         const existingIds = new Set(otherMessages.map(m => m.id));
         const newReminders = reminderMessages.filter(r => !existingIds.has(r.id));
-        
+
         if (newReminders.length === 0 && otherMessages.length === prev.length) return prev;
         return [...otherMessages, ...newReminders];
       });
@@ -716,22 +716,22 @@ export default function App() {
   const [showAddPipeline, setShowAddPipeline] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-   const [newHosting, setNewHosting] = useState({
-     domain: '',
-     amount: 0,
-     period: 'None' as HostingPeriod,
-     paymentStatus: 'Pending' as PaymentStatus,
-     invoiceStatus: 'Pending' as InvoiceStatus,
-     dueDate: new Date().toISOString().split('T')[0]
-   });
+  const [newHosting, setNewHosting] = useState({
+    domain: '',
+    amount: 0,
+    period: 'None' as HostingPeriod,
+    paymentStatus: 'Pending' as PaymentStatus,
+    invoiceStatus: 'Pending' as InvoiceStatus,
+    dueDate: new Date().toISOString().split('T')[0]
+  });
 
-   // Report filters
-   const [reportSearchQuery, setReportSearchQuery] = useState('');
-   const [reportDateFrom, setReportDateFrom] = useState('');
-   const [reportDateTo, setReportDateTo] = useState('');
-   const [reportType, setReportType] = useState<'all' | 'invoices' | 'contracts' | 'quotations' | 'clients' | 'expenses'>('all');
+  // Report filters
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+  const [reportDateFrom, setReportDateFrom] = useState('');
+  const [reportDateTo, setReportDateTo] = useState('');
+  const [reportType, setReportType] = useState<'all' | 'invoices' | 'contracts' | 'quotations' | 'clients' | 'expenses'>('all');
 
-   // Check for 7-day follow-up reminders
+  // Check for 7-day follow-up reminders
   useEffect(() => {
     if (!currentUser) return;
     if (currentUser.role !== 'Admin' && currentUser.role !== 'Pipeline') return;
@@ -744,7 +744,7 @@ export default function App() {
           const createdAt = new Date(client.createdAt);
           const diffTime = Math.abs(now.getTime() - createdAt.getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
+
           if (diffDays >= 7) {
             // Send reminder
             const reminderText = `Reminder: 7-day follow-up period completed for client ${client.name}.`;
@@ -793,7 +793,7 @@ export default function App() {
       description: 'Redirecting to login...',
       duration: 2000
     });
-    
+
     // Clear state and storage immediately to prevent race conditions
     setTimeout(() => {
       localStorage.removeItem(CURRENT_USER_KEY);
@@ -932,9 +932,9 @@ export default function App() {
       if (m.id === monthId) {
         return {
           ...m,
-          projects: [...m.projects, { 
-            id: Math.random().toString(36).substr(2, 9), 
-            name, 
+          projects: [...m.projects, {
+            id: Math.random().toString(36).substr(2, 9),
+            name,
             status: 'Pending',
             cost: 0,
             received: 0,
@@ -1084,14 +1084,14 @@ export default function App() {
     }
   };
 
-   const deleteContract = (id: string) => {
-     const newContracts = contracts.filter(c => c.id !== id);
-     setContracts(newContracts);
-     debouncedSync('contracts', newContracts, true);
-     toast.success('Contract deleted');
-   };
+  const deleteContract = (id: string) => {
+    const newContracts = contracts.filter(c => c.id !== id);
+    setContracts(newContracts);
+    debouncedSync('contracts', newContracts, true);
+    toast.success('Contract deleted');
+  };
 
-   const updateContractStatus = (id: string, status: Contract['status']) => {
+  const updateContractStatus = (id: string, status: Contract['status']) => {
     setContracts(prev => prev.map(c => c.id === id ? { ...c, status } : c));
     toast.success(`Status updated to ${status}`);
   };
@@ -1130,10 +1130,10 @@ export default function App() {
     try {
       // Use weserv.nl as a proxy to bypass CORS and convert SVG to PNG with background removal
       const logoUrl = 'https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10&w=500';
-      
+
       const img = new Image();
       img.crossOrigin = 'Anonymous';
-      
+
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
@@ -1145,21 +1145,21 @@ export default function App() {
       const targetHeight = (img.height / img.width) * targetWidth;
       canvas.width = targetWidth;
       canvas.height = targetHeight;
-      
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-        
+
         // Remove white background and make logo black
         const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
         const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-            data[i+3] = 0;
+          if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) {
+            data[i + 3] = 0;
           } else {
             data[i] = 0;
-            data[i+1] = 0;
-            data[i+2] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
           }
         }
         ctx.putImageData(imageData, 0, 0);
@@ -1236,12 +1236,12 @@ export default function App() {
     // --- PAGE 2 ONWARD ---
     drawFooter();
     doc.addPage();
-    
+
     yPos = 20; // Start at top of page
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    
+
     const lines = contract.howWeWork.split('\n');
     lines.forEach(line => {
       if (!line.trim()) {
@@ -1297,7 +1297,7 @@ export default function App() {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text('SIGNED BY:', margin, sigY);
-    
+
     // Company Side
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
@@ -1323,7 +1323,7 @@ export default function App() {
     doc.line(margin + 100, sigY + 32, margin + 150, sigY + 32);
 
     drawFooter();
-    
+
     doc.save(`Contract_${contract.clientName.replace(/\s+/g, '_')}_v${contract.version}.pdf`);
     toast.success('PDF downloaded successfully');
   };
@@ -1511,258 +1511,258 @@ export default function App() {
     toast.success('Quotation updated successfully');
   };
 
-   const deleteInvoice = (id: string) => {
-     console.log(`Deleting invoice with id: ${id}`);
-     const updatedInvoices = invoices.filter(i => i.id !== id);
-     console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
-     setInvoices(updatedInvoices);
-     debouncedSync('invoices', updatedInvoices, true);
-     toast.success('Invoice deleted');
-   };
+  const deleteInvoice = (id: string) => {
+    console.log(`Deleting invoice with id: ${id}`);
+    const updatedInvoices = invoices.filter(i => i.id !== id);
+    console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
+    setInvoices(updatedInvoices);
+    debouncedSync('invoices', updatedInvoices, true);
+    toast.success('Invoice deleted');
+  };
 
-    const markInvoiceAsPaid = (id: string) => {
-      const invoice = invoices.find(i => i.id === id);
-      const paymentAmount = invoice?.dueAmount || 0;
-      const newPayment: PaymentRecord = {
-        id: Date.now().toString(),
-        amount: paymentAmount,
-        date: new Date().toISOString().split('T')[0],
-        method: invoice?.paymentMethod
-      };
-
-      const updatedInvoices = invoices.map(i => {
-        if (i.id === id) {
-          const payments = [...(i.payments || []), newPayment];
-          const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
-          const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
-          return { ...i, payments, status };
-        }
-        return i;
-      });
-      setInvoices(updatedInvoices);
-      toast.success('Invoice marked as paid');
+  const markInvoiceAsPaid = (id: string) => {
+    const invoice = invoices.find(i => i.id === id);
+    const paymentAmount = invoice?.dueAmount || 0;
+    const newPayment: PaymentRecord = {
+      id: Date.now().toString(),
+      amount: paymentAmount,
+      date: new Date().toISOString().split('T')[0],
+      method: invoice?.paymentMethod
     };
 
-   const recordPartialPayment = async (id: string, amount: number, method?: string, note?: string) => {
-     if (amount <= 0) {
-       toast.error('Payment amount must be greater than zero');
-       return;
-     }
-
-     const invoice = invoices.find(i => i.id === id);
-     if (!invoice) return;
-
-     const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-     if (currentPaid + amount > invoice.dueAmount) {
-       toast.error(`Payment exceeds remaining due amount. Remaining: ${invoice.currency} ${(invoice.dueAmount - currentPaid).toLocaleString()}`);
-       return;
-     }
-
-     const newPayment: PaymentRecord = {
-       id: Date.now().toString(),
-       amount,
-       date: new Date().toISOString().split('T')[0],
-       method,
-       note
-     };
-
-     const updatedInvoices = invoices.map(i => {
-       if (i.id === id) {
-         const payments = [...(i.payments || []), newPayment];
-         const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
-         const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
-         return { ...i, payments, status };
-       }
-       return i;
-     });
-
-     setInvoices(updatedInvoices);
-
-     // Immediate sync to Supabase
-     const previousInvoices = previousDataRef.current['invoices'] || [];
-     const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
-      if (syncSuccess) {
-        previousDataRef.current['invoices'] = updatedInvoices;
-        // Sync viewingInvoice if open
-        if (viewingInvoice && viewingInvoice.id === id) {
-          const fresh = updatedInvoices.find(i => i.id === id);
-          if (fresh) setViewingInvoice(fresh);
-        }
-      } else {
-        setInvoices(invoices);
-        toast.error('Payment failed to sync. Changes reverted.');
+    const updatedInvoices = invoices.map(i => {
+      if (i.id === id) {
+        const payments = [...(i.payments || []), newPayment];
+        const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+        const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
+        return { ...i, payments, status };
       }
+      return i;
+    });
+    setInvoices(updatedInvoices);
+    toast.success('Invoice marked as paid');
+  };
+
+  const recordPartialPayment = async (id: string, amount: number, method?: string, note?: string) => {
+    if (amount <= 0) {
+      toast.error('Payment amount must be greater than zero');
+      return;
+    }
+
+    const invoice = invoices.find(i => i.id === id);
+    if (!invoice) return;
+
+    const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+    if (currentPaid + amount > invoice.dueAmount) {
+      toast.error(`Payment exceeds remaining due amount. Remaining: ${invoice.currency} ${(invoice.dueAmount - currentPaid).toLocaleString()}`);
+      return;
+    }
+
+    const newPayment: PaymentRecord = {
+      id: Date.now().toString(),
+      amount,
+      date: new Date().toISOString().split('T')[0],
+      method,
+      note
     };
 
-    const deletePayment = async (invoiceId: string, paymentId: string) => {
-      const invoice = invoices.find(i => i.id === invoiceId);
-      if (!invoice) return;
-
-      const updatedPayments = (invoice.payments || []).filter(p => p.id !== paymentId);
-      const paidTotal = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
-      const status: InvoiceStatus = paidTotal >= invoice.dueAmount ? 'Completed' : 'Pending';
-
-      const updatedInvoices = invoices.map(i =>
-        i.id === invoiceId ? { ...i, payments: updatedPayments, status } : i
-      );
-
-      setInvoices(updatedInvoices);
-
-      const previousInvoices = previousDataRef.current['invoices'] || [];
-      const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
-      if (syncSuccess) {
-        previousDataRef.current['invoices'] = updatedInvoices;
-        // Sync viewingInvoice if this invoice is currently being viewed
-        if (viewingInvoice && viewingInvoice.id === invoiceId) {
-          const fresh = updatedInvoices.find(i => i.id === invoiceId);
-          if (fresh) setViewingInvoice(fresh);
-        }
-        toast.success('Payment deleted');
-      } else {
-        setInvoices(invoices);
-        toast.error('Failed to delete payment');
+    const updatedInvoices = invoices.map(i => {
+      if (i.id === id) {
+        const payments = [...(i.payments || []), newPayment];
+        const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+        const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
+        return { ...i, payments, status };
       }
+      return i;
+    });
+
+    setInvoices(updatedInvoices);
+
+    // Immediate sync to Supabase
+    const previousInvoices = previousDataRef.current['invoices'] || [];
+    const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
+    if (syncSuccess) {
+      previousDataRef.current['invoices'] = updatedInvoices;
+      // Sync viewingInvoice if open
+      if (viewingInvoice && viewingInvoice.id === id) {
+        const fresh = updatedInvoices.find(i => i.id === id);
+        if (fresh) setViewingInvoice(fresh);
+      }
+    } else {
+      setInvoices(invoices);
+      toast.error('Payment failed to sync. Changes reverted.');
+    }
+  };
+
+  const deletePayment = async (invoiceId: string, paymentId: string) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) return;
+
+    const updatedPayments = (invoice.payments || []).filter(p => p.id !== paymentId);
+    const paidTotal = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+    const status: InvoiceStatus = paidTotal >= invoice.dueAmount ? 'Completed' : 'Pending';
+
+    const updatedInvoices = invoices.map(i =>
+      i.id === invoiceId ? { ...i, payments: updatedPayments, status } : i
+    );
+
+    setInvoices(updatedInvoices);
+
+    const previousInvoices = previousDataRef.current['invoices'] || [];
+    const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
+    if (syncSuccess) {
+      previousDataRef.current['invoices'] = updatedInvoices;
+      // Sync viewingInvoice if this invoice is currently being viewed
+      if (viewingInvoice && viewingInvoice.id === invoiceId) {
+        const fresh = updatedInvoices.find(i => i.id === invoiceId);
+        if (fresh) setViewingInvoice(fresh);
+      }
+      toast.success('Payment deleted');
+    } else {
+      setInvoices(invoices);
+      toast.error('Failed to delete payment');
+    }
+  };
+
+  const closePayDropdown = () => {
+    setPayDropdownInvoiceId(null);
+    setPayAmount(0);
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayMethod('');
+    setPayNote('');
+  };
+
+  const openPayModal = (invoiceId: string) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) return;
+    const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+    const remaining = invoice.dueAmount - currentPaid;
+    setPayAmount(remaining);
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayMethod(invoice.paymentMethod || savedPaymentMethods[0]?.method || '');
+    setPayNote('');
+    setPayDropdownInvoiceId(invoiceId);
+  };
+
+  const addInvoice = async () => {
+    if (!newInvoice.clientName || !newInvoice.clientBusinessName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const subTotal = newInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
+    const upfrontAmount = (subTotal * (newInvoice.upfrontPercentage || 0)) / 100;
+    const dueAmount = subTotal - upfrontAmount;
+
+    const invoice: Invoice = {
+      id: Date.now().toString(),
+      invoiceNumber: newInvoice.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
+      dueDate: newInvoice.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      clientName: newInvoice.clientName,
+      clientBusinessName: newInvoice.clientBusinessName,
+      clientAddress: newInvoice.clientAddress || '',
+      companyName: newInvoice.companyName || 'Greypixel Agency',
+      companyAddress: newInvoice.companyAddress || '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
+      services: newInvoice.services as InvoiceService[],
+      subTotal,
+      upfrontPercentage: newInvoice.upfrontPercentage || 0,
+      upfrontAmount,
+      dueAmount,
+      paymentMethod: newInvoice.paymentMethod || '',
+      notes: newInvoice.notes,
+      currency: newInvoice.currency || 'PKR',
+      createdAt: new Date().toISOString(),
+      status: 'Pending' as InvoiceStatus
     };
 
-    const closePayDropdown = () => {
-     setPayDropdownInvoiceId(null);
-     setPayAmount(0);
-     setPayDate(new Date().toISOString().split('T')[0]);
-     setPayMethod('');
-     setPayNote('');
-   };
+    const newInvoices = [...invoices, invoice];
+    setInvoices(newInvoices);
 
-   const openPayModal = (invoiceId: string) => {
-     const invoice = invoices.find(i => i.id === invoiceId);
-     if (!invoice) return;
-     const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-     const remaining = invoice.dueAmount - currentPaid;
-     setPayAmount(remaining);
-     setPayDate(new Date().toISOString().split('T')[0]);
-     setPayMethod(invoice.paymentMethod || savedPaymentMethods[0]?.method || '');
-     setPayNote('');
-     setPayDropdownInvoiceId(invoiceId);
-   };
+    // Immediate sync to Supabase
+    const previousInvoices = previousDataRef.current['invoices'] || [];
+    const syncSuccess = await saveToSupabase('invoices', newInvoices, true, previousInvoices);
+    if (syncSuccess) {
+      previousDataRef.current['invoices'] = newInvoices;
+      toast.success('Invoice created successfully');
+    } else {
+      setInvoices(invoices); // revert
+      toast.error('Failed to save invoice to cloud. The change has been reverted.');
+    }
 
-   const addInvoice = async () => {
-     if (!newInvoice.clientName || !newInvoice.clientBusinessName) {
-       toast.error('Please fill in all required fields');
-       return;
-     }
+    // Save payment method if it's new
+    if (newInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === newInvoice.paymentMethod)) {
+      setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: newInvoice.paymentMethod }]);
+    }
 
-     const subTotal = newInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
-     const upfrontAmount = (subTotal * (newInvoice.upfrontPercentage || 0)) / 100;
-     const dueAmount = subTotal - upfrontAmount;
+    setShowAddInvoice(false);
+    setNewInvoice({
+      invoiceNumber: `INV-${(Date.now() + 1).toString().slice(-6)}`,
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      clientName: '',
+      clientBusinessName: '',
+      clientAddress: '',
+      companyName: 'Greypixel Agency',
+      companyAddress: '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
+      services: [{ id: '1', service: '', cost: 0 }],
+      upfrontPercentage: 0,
+      currency: 'PKR',
+      notes: '',
+      paymentMethod: savedPaymentMethods[0]?.method || ''
+    });
+  };
 
-     const invoice: Invoice = {
-       id: Date.now().toString(),
-       invoiceNumber: newInvoice.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
-       dueDate: newInvoice.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-       clientName: newInvoice.clientName,
-       clientBusinessName: newInvoice.clientBusinessName,
-       clientAddress: newInvoice.clientAddress || '',
-       companyName: newInvoice.companyName || 'Greypixel Agency',
-       companyAddress: newInvoice.companyAddress || '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
-       services: newInvoice.services as InvoiceService[],
-       subTotal,
-       upfrontPercentage: newInvoice.upfrontPercentage || 0,
-       upfrontAmount,
-       dueAmount,
-       paymentMethod: newInvoice.paymentMethod || '',
-       notes: newInvoice.notes,
-       currency: newInvoice.currency || 'PKR',
-       createdAt: new Date().toISOString(),
-       status: 'Pending' as InvoiceStatus
-     };
+  const updateInvoice = async () => {
+    if (!editingInvoice || !editingInvoice.clientName || !editingInvoice.clientBusinessName) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
-      const newInvoices = [...invoices, invoice];
-      setInvoices(newInvoices);
+    const subTotal = editingInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
+    const upfrontAmount = (subTotal * (editingInvoice.upfrontPercentage || 0)) / 100;
+    const dueAmount = subTotal - upfrontAmount;
 
-      // Immediate sync to Supabase
-      const previousInvoices = previousDataRef.current['invoices'] || [];
-      const syncSuccess = await saveToSupabase('invoices', newInvoices, true, previousInvoices);
-      if (syncSuccess) {
-        previousDataRef.current['invoices'] = newInvoices;
-        toast.success('Invoice created successfully');
-      } else {
-        setInvoices(invoices); // revert
-        toast.error('Failed to save invoice to cloud. The change has been reverted.');
-      }
-      
-      // Save payment method if it's new
-     if (newInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === newInvoice.paymentMethod)) {
-       setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: newInvoice.paymentMethod }]);
-     }
+    const updatedInvoice: Invoice = {
+      ...editingInvoice,
+      subTotal,
+      upfrontAmount,
+      dueAmount
+    };
 
-      setShowAddInvoice(false);
-      setNewInvoice({
-        invoiceNumber: `INV-${(Date.now() + 1).toString().slice(-6)}`,
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        clientName: '',
-        clientBusinessName: '',
-        clientAddress: '',
-        companyName: 'Greypixel Agency',
-        companyAddress: '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
-        services: [{ id: '1', service: '', cost: 0 }],
-        upfrontPercentage: 0,
-        currency: 'PKR',
-        notes: '',
-        paymentMethod: savedPaymentMethods[0]?.method || ''
-      });
-   };
+    const updatedInvoices = invoices.map(i => i.id === editingInvoice.id ? updatedInvoice : i);
+    setInvoices(updatedInvoices);
 
-   const updateInvoice = async () => {
-     if (!editingInvoice || !editingInvoice.clientName || !editingInvoice.clientBusinessName) {
-       toast.error('Please fill in all required fields');
-       return;
-     }
+    // Immediate sync to Supabase
+    const previousInvoices = previousDataRef.current['invoices'] || [];
+    const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
+    if (syncSuccess) {
+      previousDataRef.current['invoices'] = updatedInvoices;
+    } else {
+      setInvoices(invoices); // revert
+      toast.error('Failed to save invoice to cloud. The change has been reverted.');
+      return;
+    }
 
-     const subTotal = editingInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
-     const upfrontAmount = (subTotal * (editingInvoice.upfrontPercentage || 0)) / 100;
-     const dueAmount = subTotal - upfrontAmount;
+    // Save payment method if it's new
+    if (editingInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === editingInvoice.paymentMethod)) {
+      setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: editingInvoice.paymentMethod }]);
+    }
 
-     const updatedInvoice: Invoice = {
-       ...editingInvoice,
-       subTotal,
-       upfrontAmount,
-       dueAmount
-     };
-
-      const updatedInvoices = invoices.map(i => i.id === editingInvoice.id ? updatedInvoice : i);
-      setInvoices(updatedInvoices);
-
-      // Immediate sync to Supabase
-      const previousInvoices = previousDataRef.current['invoices'] || [];
-      const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
-      if (syncSuccess) {
-        previousDataRef.current['invoices'] = updatedInvoices;
-      } else {
-        setInvoices(invoices); // revert
-        toast.error('Failed to save invoice to cloud. The change has been reverted.');
-        return;
-      }
-     
-     // Save payment method if it's new
-     if (editingInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === editingInvoice.paymentMethod)) {
-       setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: editingInvoice.paymentMethod }]);
-     }
-
-     setShowEditInvoice(false);
-     setEditingInvoice(null);
-     toast.success('Invoice updated successfully');
-   };
+    setShowEditInvoice(false);
+    setEditingInvoice(null);
+    toast.success('Invoice updated successfully');
+  };
 
   const addInvoiceService = () => {
     const services = showEditInvoice ? editingInvoice?.services : newInvoice.services;
     const setServices = showEditInvoice ? (s: InvoiceService[]) => setEditingInvoice({ ...editingInvoice!, services: s }) : (s: InvoiceService[]) => setNewInvoice({ ...newInvoice, services: s });
-    
+
     setServices([...(services || []), { id: Date.now().toString(), service: '', cost: 0 }]);
   };
 
   const removeInvoiceService = (id: string) => {
     const services = showEditInvoice ? editingInvoice?.services : newInvoice.services;
     const setServices = showEditInvoice ? (s: InvoiceService[]) => setEditingInvoice({ ...editingInvoice!, services: s }) : (s: InvoiceService[]) => setNewInvoice({ ...newInvoice, services: s });
-    
+
     if (services && services.length > 1) {
       setServices(services.filter(s => s.id !== id));
     }
@@ -1771,7 +1771,7 @@ export default function App() {
   const updateInvoiceService = (id: string, field: keyof InvoiceService, value: any) => {
     const services = showEditInvoice ? editingInvoice?.services : newInvoice.services;
     const setServices = showEditInvoice ? (s: InvoiceService[]) => setEditingInvoice({ ...editingInvoice!, services: s }) : (s: InvoiceService[]) => setNewInvoice({ ...newInvoice, services: s });
-    
+
     if (services) {
       setServices(services.map(s => s.id === id ? { ...s, [field]: value } : s));
     }
@@ -1797,7 +1797,7 @@ export default function App() {
 
     // Header
     yPos = 20;
-    
+
     // Logo (Top-Left)
     try {
       const logoUrl = 'https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10&w=500';
@@ -1820,8 +1820,8 @@ export default function App() {
         const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
         const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-            data[i+3] = 0;
+          if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) {
+            data[i + 3] = 0;
           }
         }
         ctx.putImageData(imageData, 0, 0);
@@ -1842,7 +1842,7 @@ export default function App() {
     doc.setFontSize(32);
     doc.setFont('helvetica', 'bold');
     doc.text('INVOICE', pageWidth - margin, yPos + 10, { align: 'right' });
-    
+
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Invoice Number: ${invoice.invoiceNumber}`, pageWidth - margin, yPos + 18, { align: 'right' });
@@ -1854,7 +1854,7 @@ export default function App() {
     doc.setDrawColor(230, 230, 230);
     doc.setLineWidth(0.5);
     doc.line(margin + 8, yPos, pageWidth - margin, yPos);
-    
+
     yPos += 15;
 
     // Body: Invoice To & Company Details
@@ -1870,7 +1870,7 @@ export default function App() {
     yPos += 7;
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    
+
     // Client Details
     doc.setFont('helvetica', 'bold');
     doc.text(invoice.clientName, leftCol, yPos);
@@ -1895,7 +1895,7 @@ export default function App() {
     // Services Table
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.rect(margin + 8, yPos, pageWidth - margin - (margin + 8), 10, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.text('Service', margin + 12, yPos + 6.5);
@@ -1912,11 +1912,11 @@ export default function App() {
         doc.rect(0, 0, 8, pageHeight, 'F');
         yPos = 20;
       }
-      
+
       const serviceLines = doc.splitTextToSize(item.service, pageWidth - margin - (margin + 30));
       doc.text(serviceLines, margin + 12, yPos + 7);
       doc.text(`${currency} ${item.cost.toLocaleString()}`, pageWidth - margin - 5, yPos + 7, { align: 'right' });
-      
+
       yPos += (serviceLines.length * 5) + 5;
       doc.setDrawColor(240, 240, 240);
       doc.line(margin + 8, yPos - 2, pageWidth - margin, yPos - 2);
@@ -1929,11 +1929,11 @@ export default function App() {
     doc.setFont('helvetica', 'bold');
     doc.text('Sub Total:', summaryX - 40, yPos, { align: 'right' });
     doc.text(`${currency} ${invoice.subTotal.toLocaleString()}`, summaryX, yPos, { align: 'right' });
-    
+
     yPos += 7;
     doc.text(`Upfront (${invoice.upfrontPercentage}%):`, summaryX - 40, yPos, { align: 'right' });
     doc.text(`${currency} ${invoice.upfrontAmount.toLocaleString()}`, summaryX, yPos, { align: 'right' });
-    
+
     yPos += 7;
     doc.setFontSize(12);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -1948,15 +1948,15 @@ export default function App() {
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.setFont('helvetica', 'bold');
     doc.text('PAYMENT DETAILS:', leftSideX, yPos);
-    
+
     yPos += 7;
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.setFont('helvetica', 'normal');
     const paymentLines = doc.splitTextToSize(invoice.paymentMethod, 80);
     doc.text(paymentLines, leftSideX, yPos);
-    
+
     yPos += (paymentLines.length * 5) + 10;
-    
+
     if (invoice.notes) {
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setFont('helvetica', 'bold');
@@ -1970,7 +1970,7 @@ export default function App() {
 
     // Footer
     const footerY = pageHeight - 30;
-    
+
     // Logo in Footer (Left)
     try {
       const logoUrl = 'https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10&w=500';
@@ -1993,8 +1993,8 @@ export default function App() {
         const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
         const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-            data[i+3] = 0;
+          if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) {
+            data[i + 3] = 0;
           }
         }
         ctx.putImageData(imageData, 0, 0);
@@ -2003,12 +2003,12 @@ export default function App() {
         const logoHeight = (targetHeight / targetWidth) * logoWidth;
         doc.addImage(logoData, 'PNG', margin + 8, footerY, logoWidth, logoHeight);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('GREYPIXEL AGENCY PRIVATE LIMITED', margin + 8, footerY + 15);
-    
+
     doc.setFont('helvetica', 'normal');
     doc.text('Greypixelagency.com', pageWidth - margin, footerY + 15, { align: 'right' });
     doc.text('Hello@greypixelagency.com', pageWidth - margin, footerY + 20, { align: 'right' });
@@ -2020,7 +2020,7 @@ export default function App() {
     const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const currency = quotation.currency || 'PKR';
-    
+
     // Modern Layout Constants
     const primaryColor = [31, 41, 55]; // Gray-800
     const accentColor = [16, 185, 129]; // Emerald-500
@@ -2036,7 +2036,7 @@ export default function App() {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(mutedTextColor[0], mutedTextColor[1], mutedTextColor[2]);
       doc.text('Greypixelagency.com | Hello@greypixelagency.com', pageWidth / 2, pageHeight - 10, { align: 'center' });
-      
+
       // Footer Border Line
       doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.2);
@@ -2065,8 +2065,8 @@ export default function App() {
         const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
         const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-            data[i+3] = 0;
+          if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) {
+            data[i + 3] = 0;
           }
         }
         ctx.putImageData(imageData, 0, 0);
@@ -2096,15 +2096,15 @@ export default function App() {
     doc.setFontSize(10);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text('PREPARED FOR:', margin, yPos + 10);
-    
+
     doc.setFontSize(12);
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.text(quotation.clientName, margin, yPos + 20);
-    
+
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(mutedTextColor[0], mutedTextColor[1], mutedTextColor[2]);
-    
+
     let clientY = yPos + 28;
     if (quotation.clientBusinessName) {
       doc.text(quotation.clientBusinessName, margin, clientY);
@@ -2130,7 +2130,7 @@ export default function App() {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(mutedTextColor[0], mutedTextColor[1], mutedTextColor[2]);
-    
+
     const companyAddressLines = doc.splitTextToSize(quotation.companyAddress || 'Greypixelagency.com | Hello@greypixelagency.com', colWidth);
     doc.text(companyAddressLines, rightColX, yPos + 28);
 
@@ -2142,7 +2142,7 @@ export default function App() {
       doc.setLineWidth(0.5);
       doc.line(margin, y, pageWidth - margin, y);
       doc.line(margin, y + 10, pageWidth - margin, y + 10);
-      
+
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -2174,7 +2174,7 @@ export default function App() {
       doc.text(scopeLines, margin, yPos + 5);
       const costText = item.cost ? item.cost.toLocaleString() : '-';
       doc.text(costText, pageWidth - margin, yPos + 5, { align: 'right' });
-      
+
       yPos += rowHeight;
       doc.setDrawColor(240, 240, 240);
       doc.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
@@ -2190,7 +2190,7 @@ export default function App() {
     doc.text('TOTAL PROJECT COST:', totalsX - 40, yPos, { align: 'right' });
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.text(`${currency} ${quotation.totalCost.toLocaleString()}`, totalsX, yPos, { align: 'right' });
-    
+
     yPos += 7;
     doc.setTextColor(185, 28, 28); // Red-700
     doc.text(`UPFRONT ${quotation.upfrontPercentage}% REQUIRED:`, totalsX - 40, yPos, { align: 'right' });
@@ -2206,18 +2206,18 @@ export default function App() {
         doc.addPage();
         yPos = 20;
       }
-      
+
       doc.setFontSize(10);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setFont('helvetica', 'bold');
       doc.text('PAYMENT METHOD:', leftSideX, yPos);
-      
+
       yPos += 7;
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.setFont('helvetica', 'normal');
       const paymentLines = doc.splitTextToSize(quotation.paymentMethod, pageWidth - margin * 2);
       doc.text(paymentLines, leftSideX, yPos);
-      
+
       yPos += (paymentLines.length * 5) + 10;
     }
 
@@ -2227,12 +2227,12 @@ export default function App() {
         doc.addPage();
         yPos = 20;
       }
-      
+
       doc.setFontSize(10);
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setFont('helvetica', 'bold');
       doc.text('NOTES & TERMS:', leftSideX, yPos);
-      
+
       yPos += 7;
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.setFont('helvetica', 'normal');
@@ -2268,7 +2268,7 @@ export default function App() {
     if (!editingQuotation) return;
     setEditingQuotation({
       ...editingQuotation,
-      items: editingQuotation.items?.map(item => 
+      items: editingQuotation.items?.map(item =>
         item.id === id ? { ...item, [field]: value } : item
       )
     });
@@ -2295,7 +2295,7 @@ export default function App() {
   const updateQuotationItem = (id: string, field: keyof QuotationItem, value: string | number) => {
     setNewQuotation({
       ...newQuotation,
-      items: newQuotation.items?.map(item => 
+      items: newQuotation.items?.map(item =>
         item.id === id ? { ...item, [field]: value } : item
       )
     });
@@ -2333,7 +2333,7 @@ export default function App() {
   };
 
   const allDayTasks = days.flatMap(d => d.tasks);
-  
+
   const filteredDays = days.map(d => ({
     ...d,
     tasks: d.tasks ? d.tasks.filter(t => t.text && t.text.toLowerCase().includes(searchQuery.toLowerCase())) : []
@@ -2343,23 +2343,23 @@ export default function App() {
   const getMonthNumber = (monthName: string): number => {
     const months_full = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
     const months_short = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    
+
     const lowerName = monthName.toLowerCase().trim();
-    
+
     // Check full month names first
     let index = months_full.findIndex(m => m === lowerName);
     if (index !== -1) return index;
-    
+
     // Check short month names
     index = months_short.findIndex(m => m === lowerName);
     if (index !== -1) return index;
-    
+
     // Check if it starts with a month name (e.g., "March 2024" -> "March")
     for (let i = 0; i < months_full.length; i++) {
       if (lowerName.startsWith(months_full[i])) return i;
       if (lowerName.startsWith(months_short[i])) return i;
     }
-    
+
     return 999; // Return 999 for non-month names (they'll appear at the end)
   };
 
@@ -2369,11 +2369,11 @@ export default function App() {
   })).filter(m => m.projects.length > 0 || m.month.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => getMonthNumber(a.month) - getMonthNumber(b.month));
 
-  const filteredDayTasks = allDayTasks.filter(t => 
+  const filteredDayTasks = allDayTasks.filter(t =>
     t.text && t.text.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredHosting = hosting.filter(h => 
+  const filteredHosting = hosting.filter(h =>
     h.domain.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -2422,25 +2422,25 @@ export default function App() {
   if (!currentUser) {
     const loginUser = users.find(u => u.name.toLowerCase() === loginForm.username.toLowerCase());
     const loginHeading = !loginUser ? "Welcome Back!" : `Welcome Back, ${loginUser.name.split(' ')[0]}!`;
-    const loginSubtext = !loginUser ? "Greypixel Agency Private Limited" : 
+    const loginSubtext = !loginUser ? "Greypixel Agency Private Limited" :
       loginUser.role === 'Admin' ? "Log in to Manage Your Agency" :
-      loginUser.role === 'Tasks' ? "Log in to Manage Your Tasks" :
-      loginUser.role === 'Pipeline' ? "Log in to Manage Your Leads" :
-      loginUser.role === 'Projects' ? "Log in to Manage Your Hostings" : "Greypixel Agency Private Limited";
+        loginUser.role === 'Tasks' ? "Log in to Manage Your Tasks" :
+          loginUser.role === 'Pipeline' ? "Log in to Manage Your Leads" :
+            loginUser.role === 'Projects' ? "Log in to Manage Your Hostings" : "Greypixel Agency Private Limited";
 
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-6 font-sans">
         <Toaster position="top-right" richColors />
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md space-y-12"
         >
           <div className="text-center space-y-6">
             <div className="flex justify-center">
-              <img 
-                src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10" 
-                alt="Greypixel Logo" 
+              <img
+                src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10"
+                alt="Greypixel Logo"
                 className="h-12 w-auto"
                 referrerPolicy="no-referrer"
               />
@@ -2459,8 +2459,8 @@ export default function App() {
                   <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none text-gray-400 group-focus-within:text-gray-900 transition-colors">
                     <User size={18} />
                   </div>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     required
                     value={loginForm.username}
                     onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
@@ -2475,8 +2475,8 @@ export default function App() {
                   <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none text-gray-400 group-focus-within:text-gray-900 transition-colors">
                     <Lock size={18} />
                   </div>
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     required
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
@@ -2487,7 +2487,7 @@ export default function App() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
               className="w-full bg-gray-900 text-white py-5 rounded-3xl font-black text-sm hover:bg-gray-800 transition-all shadow-2xl shadow-gray-200 active:scale-[0.98]"
             >
@@ -2506,7 +2506,7 @@ export default function App() {
   return (
     <div className="flex h-screen bg-[#F8F9FA] text-gray-900 font-sans overflow-hidden relative">
       <Toaster position="top-right" richColors />
-      
+
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -2534,9 +2534,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <motion.aside 
+      <motion.aside
         initial={false}
-        animate={{ 
+        animate={{
           x: isSidebarOpen ? 0 : -280,
           width: isSidebarOpen ? 280 : 0,
           opacity: 1
@@ -2545,132 +2545,132 @@ export default function App() {
         className="fixed lg:relative inset-y-0 left-0 bg-white border-r border-gray-100 flex flex-col shrink-0 z-50 shadow-2xl lg:shadow-none"
       >
         <div className="w-[280px] h-screen flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between mb-6 mt-6 px-2 shrink-0">
-              <div className="flex items-center gap-3">
-                <img 
-                  src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10" 
-                  alt="Greypixel Logo" 
-                  className="h-8 w-auto"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <button 
-                onClick={() => setIsSidebarOpen(false)}
-                className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all"
-              >
-                <X size={20} />
-              </button>
+          <div className="flex items-center justify-between mb-6 mt-6 px-2 shrink-0">
+            <div className="flex items-center gap-3">
+              <img
+                src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10"
+                alt="Greypixel Logo"
+                className="h-8 w-auto"
+                referrerPolicy="no-referrer"
+              />
             </div>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
           <nav className="space-y-2 px-2 overflow-y-auto flex-1 min-h-0" style={{ overflowY: 'auto' }}>
             {(currentUser.role === 'Admin') && (
-              <SidebarItem 
-                icon={<LayoutDashboard size={20} />} 
-                label="Dashboard" 
-                active={activeTab === 'dashboard'} 
-                onClick={() => setActiveTab('dashboard')} 
+              <SidebarItem
+                icon={<LayoutDashboard size={20} />}
+                label="Dashboard"
+                active={activeTab === 'dashboard'}
+                onClick={() => setActiveTab('dashboard')}
                 setIsSidebarOpen={setIsSidebarOpen}
               />
             )}
             {(currentUser.role === 'Admin' || currentUser.role === 'Tasks') && (
-              <SidebarItem 
-                icon={<CheckSquare size={20} />} 
-                label="Tasks" 
-                active={activeTab === 'tasks'} 
-                onClick={() => setActiveTab('tasks')} 
+              <SidebarItem
+                icon={<CheckSquare size={20} />}
+                label="Tasks"
+                active={activeTab === 'tasks'}
+                onClick={() => setActiveTab('tasks')}
                 count={stats.total}
                 setIsSidebarOpen={setIsSidebarOpen}
               />
             )}
             {(currentUser.role === 'Admin' || currentUser.role === 'Projects') && (
               <>
-                <SidebarItem 
-                  icon={<Briefcase size={20} />} 
-                  label="Projects" 
-                  active={activeTab === 'projects'} 
-                  onClick={() => setActiveTab('projects')} 
+                <SidebarItem
+                  icon={<Briefcase size={20} />}
+                  label="Projects"
+                  active={activeTab === 'projects'}
+                  onClick={() => setActiveTab('projects')}
                   count={stats.projects}
                   setIsSidebarOpen={setIsSidebarOpen}
                 />
                 {currentUser.role === 'Admin' && (
-                  <SidebarItem 
-                    icon={<DollarSign size={20} />} 
-                    label="Invoices" 
-                    active={activeTab === 'invoices'} 
-                    onClick={() => setActiveTab('invoices')} 
+                  <SidebarItem
+                    icon={<DollarSign size={20} />}
+                    label="Invoices"
+                    active={activeTab === 'invoices'}
+                    onClick={() => setActiveTab('invoices')}
                     count={invoices.length}
                     setIsSidebarOpen={setIsSidebarOpen}
                   />
                 )}
-                <SidebarItem 
-                  icon={<FileText size={20} />} 
-                  label="Contracts" 
-                  active={activeTab === 'contracts'} 
-                  onClick={() => setActiveTab('contracts')} 
+                <SidebarItem
+                  icon={<FileText size={20} />}
+                  label="Contracts"
+                  active={activeTab === 'contracts'}
+                  onClick={() => setActiveTab('contracts')}
                   count={contracts.length}
                   setIsSidebarOpen={setIsSidebarOpen}
                 />
                 {currentUser.role === 'Admin' && (
-                  <SidebarItem 
-                    icon={<ClipboardList size={20} />} 
-                    label="Quotations" 
-                    active={activeTab === 'quotations'} 
-                    onClick={() => setActiveTab('quotations')} 
+                  <SidebarItem
+                    icon={<ClipboardList size={20} />}
+                    label="Quotations"
+                    active={activeTab === 'quotations'}
+                    onClick={() => setActiveTab('quotations')}
                     count={quotations.length}
                     setIsSidebarOpen={setIsSidebarOpen}
                   />
                 )}
                 {currentUser.role === 'Admin' && (
-                  <SidebarItem 
-                    icon={<DollarSign size={20} />} 
-                    label="Expenses" 
-                    active={activeTab === 'expenses'} 
-                    onClick={() => setActiveTab('expenses')} 
+                  <SidebarItem
+                    icon={<DollarSign size={20} />}
+                    label="Expenses"
+                    active={activeTab === 'expenses'}
+                    onClick={() => setActiveTab('expenses')}
                     count={expenseGroups.length}
                     setIsSidebarOpen={setIsSidebarOpen}
                   />
-                 )}
-                 {currentUser.role === 'Admin' && (
-                   <SidebarItem 
-                     icon={<BarChart3 size={20} />}
-                     label="Reports"
-                     active={activeTab === 'reports'}
-                     onClick={() => setActiveTab('reports')}
-                     setIsSidebarOpen={setIsSidebarOpen}
-                   />
-                 )}
-                 <SidebarItem 
-                   icon={<Users size={20} />} 
-                  label="Clients" 
-                  active={activeTab === 'clients'} 
-                  onClick={() => setActiveTab('clients')} 
+                )}
+                {currentUser.role === 'Admin' && (
+                  <SidebarItem
+                    icon={<BarChart3 size={20} />}
+                    label="Reports"
+                    active={activeTab === 'reports'}
+                    onClick={() => setActiveTab('reports')}
+                    setIsSidebarOpen={setIsSidebarOpen}
+                  />
+                )}
+                <SidebarItem
+                  icon={<Users size={20} />}
+                  label="Clients"
+                  active={activeTab === 'clients'}
+                  onClick={() => setActiveTab('clients')}
                   count={clients.length}
                   setIsSidebarOpen={setIsSidebarOpen}
                 />
-                <SidebarItem 
-                  icon={<Globe size={20} />} 
-                  label="Hosting" 
-                  active={activeTab === 'hosting'} 
-                  onClick={() => setActiveTab('hosting')} 
+                <SidebarItem
+                  icon={<Globe size={20} />}
+                  label="Hosting"
+                  active={activeTab === 'hosting'}
+                  onClick={() => setActiveTab('hosting')}
                   count={hosting.length}
                   setIsSidebarOpen={setIsSidebarOpen}
                 />
-                <SidebarItem 
-                  icon={<Globe size={20} />} 
-                  label="Websites" 
-                  active={activeTab === 'websites'} 
-                  onClick={() => setActiveTab('websites')} 
+                <SidebarItem
+                  icon={<Globe size={20} />}
+                  label="Websites"
+                  active={activeTab === 'websites'}
+                  onClick={() => setActiveTab('websites')}
                   count={websiteClients.length}
                   setIsSidebarOpen={setIsSidebarOpen}
                 />
               </>
             )}
             {(currentUser.role === 'Admin' || currentUser.role === 'Pipeline') && (
-              <SidebarItem 
-                icon={<Users size={20} />} 
-                label="Pipeline" 
-                active={activeTab === 'pipeline'} 
-                onClick={() => setActiveTab('pipeline')} 
+              <SidebarItem
+                icon={<Users size={20} />}
+                label="Pipeline"
+                active={activeTab === 'pipeline'}
+                onClick={() => setActiveTab('pipeline')}
                 count={pipelineClients.length}
                 setIsSidebarOpen={setIsSidebarOpen}
               />
@@ -2689,7 +2689,7 @@ export default function App() {
                 <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{currentUser.role}</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={handleLogout}
               className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
               title="Logout"
@@ -2705,7 +2705,7 @@ export default function App() {
         {/* Top Bar */}
         <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 lg:px-10 shrink-0">
           <div className="flex items-center gap-4 lg:gap-6">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all"
             >
@@ -2713,9 +2713,9 @@ export default function App() {
             </button>
             <div className="hidden sm:flex items-center gap-4 bg-gray-50 px-4 py-2 rounded-2xl border border-gray-100 w-64 lg:w-80">
               <Search size={18} className="text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search everything..." 
+              <input
+                type="text"
+                placeholder="Search everything..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-transparent border-none focus:outline-none text-sm w-full font-medium"
@@ -2725,7 +2725,7 @@ export default function App() {
 
           <div className="flex items-center gap-3 lg:gap-6">
             {(currentUser.role === 'Admin' || currentUser.role === 'Pipeline' || currentUser.role === 'Projects') && (
-              <button 
+              <button
                 onClick={() => setShowChat(true)}
                 className="relative p-2 text-gray-400 hover:text-gray-900 transition-colors"
                 title="Personal Notes"
@@ -2739,7 +2739,7 @@ export default function App() {
               </button>
             )}
             {currentUser.role === 'Admin' && (
-              <button 
+              <button
                 onClick={() => setShowSettings(true)}
                 className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
                 title="Settings"
@@ -2747,7 +2747,7 @@ export default function App() {
                 <Settings size={22} />
               </button>
             )}
-            <button 
+            <button
               onClick={handleLogout}
               className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
               title="Logout"
@@ -2794,13 +2794,13 @@ export default function App() {
                         <h3 className="text-xl font-black">Quick Tasks</h3>
                         <button onClick={() => setActiveTab('tasks')} className="text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">View All</button>
                       </div>
-              <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
                         {/* Quick Add Input */}
                         {days.length > 0 && (
                           <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              placeholder="Add a quick task..." 
+                            <input
+                              type="text"
+                              placeholder="Add a quick task..."
                               className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
@@ -2811,7 +2811,7 @@ export default function App() {
                             />
                           </div>
                         )}
-                        
+
                         <div className="space-y-4">
                           {filteredDayTasks.slice(0, 5).map(task => (
                             <div key={task.id} className="flex items-center gap-3">
@@ -2829,7 +2829,7 @@ export default function App() {
                         <h3 className="text-xl font-black">Recent Invoices</h3>
                         <button onClick={() => setActiveTab('invoices')} className="text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">View All</button>
                       </div>
-              <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
                         <div className="space-y-4">
                           {invoices.slice(0, 5).map(invoice => (
                             <div key={invoice.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer" onClick={() => { setViewingInvoice(invoice); setActiveTab('invoices'); }}>
@@ -2860,7 +2860,7 @@ export default function App() {
                         <h3 className="text-xl font-black">Recent Projects</h3>
                         <button onClick={() => setActiveTab('projects')} className="text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">View All</button>
                       </div>
-              <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
                         <div className="space-y-4">
                           {[...months].sort((a, b) => getMonthNumber(b.month) - getMonthNumber(a.month)).flatMap(m => m.projects).slice(0, 5).map(project => (
                             <div key={project.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all">
@@ -2889,7 +2889,7 @@ export default function App() {
                         <h3 className="text-xl font-black">Recent Quotations</h3>
                         <button onClick={() => setActiveTab('quotations')} className="text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors">View All</button>
                       </div>
-              <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
+                      <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
                         <div className="space-y-4">
                           {quotations.slice(0, 5).map(quotation => (
                             <div key={quotation.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-2xl transition-all cursor-pointer" onClick={() => { setEditingQuotation(quotation); setShowEditQuotation(true); }}>
@@ -2928,7 +2928,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-3xl font-black text-gray-900">Tasks</h2>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddDay(true)}
                       className="bg-gray-900 text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-gray-800 transition-all flex items-center gap-2"
                     >
@@ -2960,7 +2960,7 @@ export default function App() {
                     <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed border-gray-200">
                       <Calendar className="mx-auto text-gray-200 mb-6" size={64} />
                       <p className="text-gray-400 font-bold text-lg">No days added yet.</p>
-                      <button 
+                      <button
                         onClick={() => setShowAddDay(true)}
                         className="mt-4 text-gray-900 font-black hover:underline"
                       >
@@ -2982,7 +2982,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-3xl font-black text-gray-900">Projects</h2>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddMonth(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3012,7 +3012,7 @@ export default function App() {
                       </div>
                       <h3 className="text-xl font-black text-gray-900">No months added yet</h3>
                       <p className="text-gray-400 font-medium mt-2 max-w-xs">Start by adding a month to organize your projects.</p>
-                      <button 
+                      <button
                         onClick={() => setShowAddMonth(true)}
                         className="mt-8 text-gray-900 font-black text-sm hover:underline"
                       >
@@ -3035,7 +3035,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-3xl font-black text-gray-900">Clients</h2>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddClient(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3061,9 +3061,9 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {clients.map((c) => (
-                          <ClientRow 
-                            key={c.id} 
-                            client={c} 
+                          <ClientRow
+                            key={c.id}
+                            client={c}
                             onDelete={() => {
                               const newClients = clients.filter(cl => cl.id !== c.id);
                               setClients(newClients);
@@ -3097,7 +3097,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-3xl font-black text-gray-900">Hosting</h2>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddHosting(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3124,9 +3124,9 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {filteredHosting.map((h) => (
-                          <HostingRow 
-                            key={h.id} 
-                            hosting={h} 
+                          <HostingRow
+                            key={h.id}
+                            hosting={h}
                             onDelete={() => deleteHosting(h.id)}
                             onUpdate={(updates) => updateHosting(h.id, updates)}
                           />
@@ -3141,7 +3141,7 @@ export default function App() {
                       </tbody>
                     </table>
                   </div>
-                  
+
                   {/* Total Amount Display */}
                   {filteredHosting.length > 0 && (
                     <div className="bg-gray-50/50 border-t border-gray-100 px-8 py-6">
@@ -3171,7 +3171,7 @@ export default function App() {
                     <p className="text-gray-400 font-medium mt-1">Manage and track your website clients.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddWebsite(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3184,7 +3184,7 @@ export default function App() {
                 <div className="flex items-center gap-4">
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                    <input 
+                    <input
                       type="text"
                       placeholder="Search by name..."
                       value={websiteSearchQuery}
@@ -3203,14 +3203,14 @@ export default function App() {
                     .map(client => (
                       <div key={client.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-bl-[5rem] -mr-16 -mt-16 group-hover:bg-gray-100 transition-colors" />
-                        
+
                         <div className="relative">
                           <div className="flex items-start justify-between mb-6">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
                               <Globe size={24} />
                             </div>
                             <div className="flex items-center gap-2">
-                              <button 
+                              <button
                                 onClick={() => {
                                   setEditingWebsite(client);
                                 }}
@@ -3219,7 +3219,7 @@ export default function App() {
                               >
                                 <Edit size={18} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => deleteWebsiteClient(client.id)}
                                 className="text-gray-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
                                 title="Delete"
@@ -3230,9 +3230,9 @@ export default function App() {
                           </div>
 
                           <h3 className="text-lg sm:text-xl font-black text-gray-900 truncate">{client.name}</h3>
-                          
+
                           {client.websiteLink && (
-                            <a 
+                            <a
                               href={client.websiteLink.startsWith('http') ? client.websiteLink : `https://${client.websiteLink}`}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -3274,7 +3274,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-3xl font-black text-gray-900">Contracts</h2>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddContract(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3284,34 +3284,34 @@ export default function App() {
                   </div>
                 </div>
 
-                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
-                   <div className="overflow-x-auto">
-                     <table className="w-full text-left border-collapse">
-                       <thead>
-                         <tr className="bg-gray-50/50 border-b border-gray-100">
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Company</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                         </tr>
-                       </thead>
-                       <tbody className="divide-y divide-gray-50">
-                         {contracts.map(contract => (
-                           <tr key={contract.id} className="hover:bg-gray-50/30 transition-colors group cursor-pointer" onClick={() => setViewingContract(contract)}>
-                             <td className="px-8 py-6">
-                               <p className="font-black text-gray-900">{contract.clientName}</p>
-                             </td>
-                             <td className="px-8 py-6">
-                               <p className="text-sm text-gray-600">{contract.companyName}</p>
-                             </td>
-                             <td className="px-8 py-6">
-                               <p className="font-black text-gray-900">{contract.currency} {contract.amount.toLocaleString()}</p>
-                             </td>
-                             <td className="px-8 py-6">
-                               <p className="text-sm text-gray-600">{contract.contractDate}</p>
-                             </td>
+                <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Company</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {contracts.map(contract => (
+                          <tr key={contract.id} className="hover:bg-gray-50/30 transition-colors group cursor-pointer" onClick={() => setViewingContract(contract)}>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-gray-900">{contract.clientName}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="text-sm text-gray-600">{contract.companyName}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-gray-900">{contract.currency} {contract.amount.toLocaleString()}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="text-sm text-gray-600">{contract.contractDate}</p>
+                            </td>
                             <td className="px-8 py-6 relative">
                               <select
                                 value={contract.status}
@@ -3319,13 +3319,12 @@ export default function App() {
                                   e.stopPropagation();
                                   updateContractStatus(contract.id, e.target.value as Contract['status']);
                                 }}
-                                className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer w-full ${
-                                  contract.status === 'Signed' ? 'bg-emerald-50 text-emerald-600' :
+                                className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer w-full ${contract.status === 'Signed' ? 'bg-emerald-50 text-emerald-600' :
                                   contract.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
-                                  contract.status === 'Sent' ? 'bg-blue-50 text-blue-600' :
-                                  contract.status === 'Draft' ? 'bg-gray-50 text-gray-400' :
-                                  'bg-gray-50 text-gray-400'
-                                }`}
+                                    contract.status === 'Sent' ? 'bg-blue-50 text-blue-600' :
+                                      contract.status === 'Draft' ? 'bg-gray-50 text-gray-400' :
+                                        'bg-gray-50 text-gray-400'
+                                  }`}
                               >
                                 <option value="Draft">Draft</option>
                                 <option value="Pending">Pending</option>
@@ -3337,53 +3336,53 @@ export default function App() {
                                 <ChevronDown size={14} />
                               </div>
                             </td>
-                             <td className="px-8 py-6 text-right">
-                               <div className="flex items-center justify-end gap-2">
-                                 <button
-                                   onClick={(e) => { e.stopPropagation(); setViewingContract(contract); }}
-                                   className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
-                                   title="View Contract"
-                                 >
-                                   <Eye size={18} />
-                                 </button>
-                                 <button
-                                   onClick={(e) => { e.stopPropagation(); setEditingContract(contract); setShowEditContract(true); }}
-                                   className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
-                                   title="Edit Contract"
-                                 >
-                                   <Edit size={18} />
-                                 </button>
-                                 <button
-                                   onClick={(e) => { e.stopPropagation(); deleteContract(contract.id); }}
-                                   className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
-                                   title="Delete Contract"
-                                 >
-                                   <Trash2 size={18} />
-                                 </button>
-                               </div>
-                             </td>
-                           </tr>
-                         ))}
-                       </tbody>
-                     </table>
-                   </div>
+                            <td className="px-8 py-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setViewingContract(contract); }}
+                                  className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                  title="View Contract"
+                                >
+                                  <Eye size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingContract(contract); setShowEditContract(true); }}
+                                  className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                  title="Edit Contract"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); deleteContract(contract.id); }}
+                                  className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
+                                  title="Delete Contract"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                   {contracts.length === 0 && (
-                     <div className="bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
-                       <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
-                         <FileText size={40} />
-                       </div>
-                       <h3 className="text-xl font-black text-gray-900">No contracts created yet</h3>
-                       <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate professional contracts for your clients in seconds.</p>
-                       <button 
-                         onClick={() => setShowAddContract(true)}
-                         className="mt-8 text-gray-900 font-black text-sm hover:underline"
-                       >
-                         Create your first contract
-                       </button>
-                     </div>
-                   )}
-                 </div>
+                  {contracts.length === 0 && (
+                    <div className="bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
+                      <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
+                        <FileText size={40} />
+                      </div>
+                      <h3 className="text-xl font-black text-gray-900">No contracts created yet</h3>
+                      <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate professional contracts for your clients in seconds.</p>
+                      <button
+                        onClick={() => setShowAddContract(true)}
+                        className="mt-8 text-gray-900 font-black text-sm hover:underline"
+                      >
+                        Create your first contract
+                      </button>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 
@@ -3401,7 +3400,7 @@ export default function App() {
                     <p className="text-gray-400 font-medium mt-1">Track your potential leads and follow-up status.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddPipeline(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3435,14 +3434,13 @@ export default function App() {
                               <p className="text-sm text-gray-500 max-w-xs truncate">{client.scope}</p>
                             </td>
                             <td className="px-8 py-6 text-center">
-                              <select 
+                              <select
                                 value={client.status}
                                 onChange={(e) => updatePipelineStatus(client.id, e.target.value as PipelineStatus)}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer focus:outline-none text-center min-w-[120px] ${
-                                  client.status === 'Leads Closed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer focus:outline-none text-center min-w-[120px] ${client.status === 'Leads Closed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                                   client.status === 'Discuss' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                  'bg-rose-50 text-rose-600 border border-rose-100'
-                                }`}
+                                    'bg-rose-50 text-rose-600 border border-rose-100'
+                                  }`}
                               >
                                 <option value="Pending">Pending</option>
                                 <option value="Discuss">Discuss</option>
@@ -3450,7 +3448,7 @@ export default function App() {
                               </select>
                             </td>
                             <td className="px-8 py-6 text-center">
-                              <select 
+                              <select
                                 value={client.followUpPeriod}
                                 onChange={(e) => updateFollowUpPeriod(client.id, parseInt(e.target.value))}
                                 className="px-4 py-2 bg-gray-50 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-gray-100 appearance-none cursor-pointer focus:outline-none text-center"
@@ -3461,20 +3459,19 @@ export default function App() {
                               </select>
                             </td>
                             <td className="px-8 py-6 text-center">
-                              <select 
+                              <select
                                 value={client.followUpStatus}
                                 onChange={(e) => updateFollowUpStatus(client.id, e.target.value as FollowUpStatus)}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer focus:outline-none text-center min-w-[120px] ${
-                                  client.followUpStatus === 'Followed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer focus:outline-none text-center min-w-[120px] ${client.followUpStatus === 'Followed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                                   'bg-rose-50 text-rose-600 border border-rose-100'
-                                }`}
+                                  }`}
                               >
                                 <option value="Pending">Pending</option>
                                 <option value="Followed">Followed</option>
                               </select>
                             </td>
                             <td className="px-8 py-6 text-right">
-                              <button 
+                              <button
                                 onClick={() => deletePipelineClient(client.id)}
                                 className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
                               >
@@ -3492,7 +3489,7 @@ export default function App() {
                                 </div>
                                 <h3 className="text-lg font-black text-gray-900">No clients in pipeline</h3>
                                 <p className="text-gray-400 font-medium mt-1">Start adding potential leads to track your sales pipeline.</p>
-                                <button 
+                                <button
                                   onClick={() => setShowAddPipeline(true)}
                                   className="mt-6 text-gray-900 font-black text-sm hover:underline"
                                 >
@@ -3523,7 +3520,7 @@ export default function App() {
                     <p className="text-gray-400 font-medium mt-1">Create and manage professional quotations for your clients.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddQuotation(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3607,7 +3604,7 @@ export default function App() {
                       </div>
                       <h3 className="text-xl font-black text-gray-900">No quotations created yet</h3>
                       <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate detailed quotations with service breakdowns and upfront calculations.</p>
-                      <button 
+                      <button
                         onClick={() => setShowAddQuotation(true)}
                         className="mt-8 text-gray-900 font-black text-sm hover:underline"
                       >
@@ -3633,7 +3630,7 @@ export default function App() {
                     <p className="text-gray-400 font-medium mt-1">Generate and manage professional invoices for your clients.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowAddInvoice(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3646,18 +3643,18 @@ export default function App() {
                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                       <thead>
-                         <tr className="bg-gray-50/50 border-b border-gray-100">
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Invoice #</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Date</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Paid</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Remaining</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                         </tr>
-                       </thead>
+                      <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Invoice #</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Date</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Paid</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Remaining</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
                       <tbody className="divide-y divide-gray-50">
                         {invoices.map(invoice => (
                           <tr
@@ -3689,25 +3686,24 @@ export default function App() {
                               </p>
                             </td>
                             <td className="px-8 py-6">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                invoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${invoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
                                 invoice.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
-                                'bg-gray-50 text-gray-400'
-                              }`}>
+                                  'bg-gray-50 text-gray-400'
+                                }`}>
                                 {invoice.status || 'Pending'}
                               </span>
                             </td>
                             <td className="px-8 py-6 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                 {invoice.status !== 'Completed' && (
-                                   <button
-                                     onClick={(e) => { e.stopPropagation(); openPayModal(invoice.id); }}
-                                     className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-xl transition-all"
-                                     title="Record Payment"
-                                   >
-                                     <CheckCircle2 size={18} />
-                                   </button>
-                                 )}
+                                {invoice.status !== 'Completed' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); openPayModal(invoice.id); }}
+                                    className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-xl transition-all"
+                                    title="Record Payment"
+                                  >
+                                    <CheckCircle2 size={18} />
+                                  </button>
+                                )}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); downloadInvoicePDF(invoice); }}
                                   className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
@@ -3756,7 +3752,7 @@ export default function App() {
                     </div>
                     <h3 className="text-xl font-black text-gray-900">No invoices created yet</h3>
                     <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate detailed invoices with service breakdowns and upfront calculations.</p>
-                    <button 
+                    <button
                       onClick={() => setShowAddInvoice(true)}
                       className="mt-8 text-gray-900 font-black text-sm hover:underline"
                     >
@@ -3781,7 +3777,7 @@ export default function App() {
                     <p className="text-gray-400 font-medium mt-1">Manage and track your business expenses by groups.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => setAddingGroup(true)}
                       className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center gap-3"
                     >
@@ -3792,7 +3788,7 @@ export default function App() {
                 </div>
 
                 {addingGroup && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6"
@@ -3804,14 +3800,14 @@ export default function App() {
                       </button>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4">
-                      <input 
-                        type="text" 
-                        placeholder="Group Name (e.g., Marketing, Office Supplies)" 
+                      <input
+                        type="text"
+                        placeholder="Group Name (e.g., Marketing, Office Supplies)"
                         className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
                       />
-                      <button 
+                      <button
                         onClick={() => {
                           if (newGroupName.trim()) {
                             addExpenseGroup(newGroupName);
@@ -3835,7 +3831,7 @@ export default function App() {
                       </div>
                       <h3 className="text-xl font-black text-gray-900">No expense groups yet</h3>
                       <p className="text-gray-400 font-medium mt-2 max-w-xs">Create your first group to start tracking expenses.</p>
-                      <button 
+                      <button
                         onClick={() => setAddingGroup(true)}
                         className="mt-8 text-gray-900 font-black text-sm hover:underline"
                       >
@@ -3846,7 +3842,7 @@ export default function App() {
                     expenseGroups.map(group => {
                       const total = group.expenses.reduce((sum, e) => sum + e.amount, 0);
                       return (
-                        <motion.div 
+                        <motion.div
                           key={group.id}
                           layout
                           className={`bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden transition-all ${group.isClosed ? 'opacity-90' : ''}`}
@@ -3873,13 +3869,13 @@ export default function App() {
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Amount</p>
                                 <p className="text-lg font-black text-gray-900">{total.toLocaleString()} PKR</p>
                               </div>
-                              <button 
+                              <button
                                 onClick={() => toggleExpenseGroup(group.id)}
                                 className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm ${group.isClosed ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50'}`}
                               >
                                 {group.isClosed ? 'Reopen' : 'Close & Total'}
                               </button>
-                              <button 
+                              <button
                                 onClick={() => deleteExpenseGroup(group.id)}
                                 className="p-3 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                               >
@@ -3899,7 +3895,7 @@ export default function App() {
                                     </div>
                                     <div className="flex items-center gap-6">
                                       <span className="font-black text-sm text-gray-900">{expense.amount.toLocaleString()} PKR</span>
-                                      <button 
+                                      <button
                                         onClick={() => deleteExpense(group.id, expense.id)}
                                         className="p-2 text-gray-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-50 rounded-lg"
                                       >
@@ -3916,22 +3912,22 @@ export default function App() {
                               </div>
 
                               <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-50">
-                                <input 
-                                  type="text" 
-                                  placeholder="Expense Name (e.g., Facebook Ads)" 
+                                <input
+                                  type="text"
+                                  placeholder="Expense Name (e.g., Facebook Ads)"
                                   className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-5 py-3.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
                                   value={newExpense.groupId === group.id ? newExpense.name : ''}
                                   onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value, groupId: group.id })}
                                 />
                                 <div className="flex gap-3">
-                                  <input 
-                                    type="number" 
-                                    placeholder="Amount" 
+                                  <input
+                                    type="number"
+                                    placeholder="Amount"
                                     className="w-full sm:w-32 bg-gray-50 border border-gray-100 rounded-xl px-5 py-3.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
                                     value={newExpense.groupId === group.id ? newExpense.amount || '' : ''}
                                     onChange={(e) => setNewExpense({ ...newExpense, amount: Number(e.target.value), groupId: group.id })}
                                   />
-                                  <button 
+                                  <button
                                     onClick={() => {
                                       if (newExpense.name.trim() && newExpense.amount > 0) {
                                         addExpense(group.id, newExpense.name, newExpense.amount);
@@ -3971,7 +3967,7 @@ export default function App() {
               </motion.div>
             )}
             {activeTab === 'reports' && (
-              <Reports 
+              <Reports
                 data={{
                   invoices,
                   contracts,
@@ -4019,9 +4015,9 @@ export default function App() {
                 <div className="bg-white shadow-sm border border-gray-200 rounded-[1.5rem] sm:rounded-[2rem] p-6 sm:p-12 max-w-2xl mx-auto min-h-[800px] flex flex-col">
                   {/* Page 1 Preview */}
                   <div className="flex flex-col items-center mb-16">
-                    <img 
-                      src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10" 
-                      alt="Logo" 
+                    <img
+                      src="https://images.weserv.nl/?url=cloud.greypixelagency.com/greypixel/Logo.svg&output=png&bg=transparent&trim=10"
+                      alt="Logo"
                       className="h-12 object-contain mb-16"
                       referrerPolicy="no-referrer"
                     />
@@ -4030,7 +4026,7 @@ export default function App() {
 
                   <div className="space-y-6 text-sm text-gray-700">
                     <p className="font-medium">This agreement is made between:</p>
-                    
+
                     <div>
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Company Details</p>
                       <p className="font-bold text-gray-900">{viewingContract.companyName}</p>
@@ -4121,7 +4117,7 @@ export default function App() {
                       <p className="text-[10px] text-gray-400">{viewingContract.clientName}</p>
                     </div>
                   </div>
-                  
+
                   <div className="mt-auto pt-12 -mx-12">
                     <div className="text-center text-[8px] text-gray-400 mb-1">
                       Greypixelagency.com | Hello@greypixelagency.com
@@ -4132,13 +4128,13 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
-                <button 
+                <button
                   onClick={() => downloadContractPDF(viewingContract)}
                   className="flex-1 bg-rose-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-rose-700 transition-all shadow-xl shadow-rose-200"
                 >
                   Download PDF
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     const blob = new Blob([viewingContract.template], { type: 'text/plain' });
                     const url = URL.createObjectURL(blob);
@@ -4151,7 +4147,7 @@ export default function App() {
                 >
                   Download TXT
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     const newV = (viewingContract.version || 1) + 1;
                     const updatedNewContract = {
@@ -4168,7 +4164,7 @@ export default function App() {
                 >
                   Duplicate (v+)
                 </button>
-                <button 
+                <button
                   onClick={() => setViewingContract(null)}
                   className="px-10 py-5 bg-white border border-gray-200 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all"
                 >
@@ -4220,11 +4216,10 @@ export default function App() {
                         <p className="text-lg font-black text-gray-900">{viewingInvoice.invoiceNumber}</p>
                       </div>
                     </div>
-                    <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      viewingInvoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
+                    <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider ${viewingInvoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
                       viewingInvoice.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
-                      'bg-gray-50 text-gray-400'
-                    }`}>
+                        'bg-gray-50 text-gray-400'
+                      }`}>
                       {viewingInvoice.status || 'Pending'}
                     </span>
                   </div>
@@ -4279,52 +4274,52 @@ export default function App() {
                     </div>
                   </div>
 
-                   {/* Totals */}
-                   <div className="space-y-3 pt-4 border-t border-gray-100">
-                     <div className="flex justify-between text-sm">
-                       <span className="text-gray-500">Subtotal</span>
-                       <span className="font-bold text-gray-900">{viewingInvoice.currency} {viewingInvoice.subTotal.toLocaleString()}</span>
-                     </div>
-                     <div className="flex justify-between text-sm">
-                       <span className="text-gray-500">Upfront ({viewingInvoice.upfrontPercentage}%)</span>
-                       <span className="font-bold text-rose-600">-{viewingInvoice.currency} {viewingInvoice.upfrontAmount.toLocaleString()}</span>
-                     </div>
-                     <div className="flex justify-between text-lg font-black">
-                       <span>Total Due</span>
-                       <span className="text-gray-900">{viewingInvoice.currency} {viewingInvoice.dueAmount.toLocaleString()}</span>
-                     </div>
+                  {/* Totals */}
+                  <div className="space-y-3 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Subtotal</span>
+                      <span className="font-bold text-gray-900">{viewingInvoice.currency} {viewingInvoice.subTotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Upfront ({viewingInvoice.upfrontPercentage}%)</span>
+                      <span className="font-bold text-rose-600">-{viewingInvoice.currency} {viewingInvoice.upfrontAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-black">
+                      <span>Total Due</span>
+                      <span className="text-gray-900">{viewingInvoice.currency} {viewingInvoice.dueAmount.toLocaleString()}</span>
+                    </div>
 
-                     {/* Payment History */}
-                     {viewingInvoice.payments && viewingInvoice.payments.length > 0 && (
-                       <div className="mt-6 pt-4 border-t border-gray-100">
-                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment History</p>
-                         <div className="space-y-2">
-                           {viewingInvoice.payments.map((payment) => (
-                             <div key={payment.id} className="flex justify-between items-center bg-emerald-50 px-4 py-3 rounded-xl">
-                               <div>
-                                 <p className="text-sm font-bold text-emerald-700">{viewingInvoice.currency} {payment.amount.toLocaleString()}</p>
-                                 {payment.note && <p className="text-xs text-gray-500 mt-1">{payment.note}</p>}
-                               </div>
-                               <div className="text-right">
-                                 <p className="text-xs text-gray-600">{payment.date}</p>
-                                 {payment.method && <p className="text-xs text-gray-500">{payment.method}</p>}
-                               </div>
-                             </div>
-                           ))}
-                         </div>
-                         <div className="flex justify-between mt-3 pt-3 border-t border-emerald-100 text-sm font-black">
-                           <span className="text-emerald-700">Total Paid</span>
-                           <span className="text-emerald-700">{viewingInvoice.currency} {viewingInvoice.payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}</span>
-                         </div>
-                         <div className="flex justify-between mt-1 text-sm font-black">
-                           <span className="text-rose-600">Remaining</span>
-                           <span className="text-rose-600">
-                             {viewingInvoice.currency} {(viewingInvoice.dueAmount - viewingInvoice.payments.reduce((sum, p) => sum + p.amount, 0)).toLocaleString()}
-                           </span>
-                         </div>
-                       </div>
-                     )}
-                   </div>
+                    {/* Payment History */}
+                    {viewingInvoice.payments && viewingInvoice.payments.length > 0 && (
+                      <div className="mt-6 pt-4 border-t border-gray-100">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment History</p>
+                        <div className="space-y-2">
+                          {viewingInvoice.payments.map((payment) => (
+                            <div key={payment.id} className="flex justify-between items-center bg-emerald-50 px-4 py-3 rounded-xl">
+                              <div>
+                                <p className="text-sm font-bold text-emerald-700">{viewingInvoice.currency} {payment.amount.toLocaleString()}</p>
+                                {payment.note && <p className="text-xs text-gray-500 mt-1">{payment.note}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-600">{payment.date}</p>
+                                {payment.method && <p className="text-xs text-gray-500">{payment.method}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between mt-3 pt-3 border-t border-emerald-100 text-sm font-black">
+                          <span className="text-emerald-700">Total Paid</span>
+                          <span className="text-emerald-700">{viewingInvoice.currency} {viewingInvoice.payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between mt-1 text-sm font-black">
+                          <span className="text-rose-600">Remaining</span>
+                          <span className="text-rose-600">
+                            {viewingInvoice.currency} {(viewingInvoice.dueAmount - viewingInvoice.payments.reduce((sum, p) => sum + p.amount, 0)).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Payment Method & Notes */}
                   {viewingInvoice.paymentMethod && (
@@ -4344,17 +4339,17 @@ export default function App() {
                 </div>
               </div>
 
-               <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
-                 {viewingInvoice.status !== 'Completed' && (
-                   <button
-                     onClick={() => {
-                       openPayModal(viewingInvoice.id);
-                     }}
-                     className="flex-1 bg-emerald-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
-                   >
-                     Record Payment
-                   </button>
-                 )}
+              <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
+                {viewingInvoice.status !== 'Completed' && (
+                  <button
+                    onClick={() => {
+                      openPayModal(viewingInvoice.id);
+                    }}
+                    className="flex-1 bg-emerald-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
+                  >
+                    Record Payment
+                  </button>
+                )}
                 <button
                   onClick={() => downloadInvoicePDF(viewingInvoice)}
                   className="flex-1 bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
@@ -4408,8 +4403,8 @@ export default function App() {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newPipelineClient.name}
                       onChange={(e) => setNewPipelineClient({ ...newPipelineClient, name: e.target.value })}
                       placeholder="Enter client or company name"
@@ -4419,7 +4414,7 @@ export default function App() {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Scope of Work</label>
-                    <textarea 
+                    <textarea
                       value={newPipelineClient.scope}
                       onChange={(e) => setNewPipelineClient({ ...newPipelineClient, scope: e.target.value })}
                       placeholder="Briefly describe the project scope"
@@ -4431,7 +4426,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Status</label>
-                      <select 
+                      <select
                         value={newPipelineClient.status}
                         onChange={(e) => setNewPipelineClient({ ...newPipelineClient, status: e.target.value as PipelineStatus })}
                         className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
@@ -4444,7 +4439,7 @@ export default function App() {
 
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Follow-Up Period</label>
-                      <select 
+                      <select
                         value={newPipelineClient.followUpPeriod}
                         onChange={(e) => setNewPipelineClient({ ...newPipelineClient, followUpPeriod: parseInt(e.target.value) })}
                         className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
@@ -4458,7 +4453,7 @@ export default function App() {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Follow-Up Status</label>
-                    <select 
+                    <select
                       value={newPipelineClient.followUpStatus}
                       onChange={(e) => setNewPipelineClient({ ...newPipelineClient, followUpStatus: e.target.value as FollowUpStatus })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
@@ -4471,13 +4466,13 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
-                <button 
+                <button
                   onClick={addPipelineClient}
                   className="flex-1 bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
                   Add to Pipeline
                 </button>
-                <button 
+                <button
                   onClick={() => setShowAddPipeline(false)}
                   className="px-10 py-5 bg-white border border-gray-200 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all"
                 >
@@ -4521,32 +4516,32 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="John Doe"
                         value={newContract.clientName}
-                        onChange={(e) => setNewContract({...newContract, clientName: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, clientName: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Email</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         placeholder="john@example.com"
                         value={newContract.clientEmail}
-                        onChange={(e) => setNewContract({...newContract, clientEmail: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, clientEmail: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Address</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="456 Client St, City, Country"
                       value={newContract.clientAddress}
-                      onChange={(e) => setNewContract({...newContract, clientAddress: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, clientAddress: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
@@ -4557,27 +4552,27 @@ export default function App() {
                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Company Details</h3>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company Name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newContract.companyName}
-                      onChange={(e) => setNewContract({...newContract, companyName: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, companyName: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company Address</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newContract.companyAddress}
-                      onChange={(e) => setNewContract({...newContract, companyAddress: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, companyAddress: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest px-1">Important Note (Red)</label>
-                    <textarea 
+                    <textarea
                       value={newContract.note}
-                      onChange={(e) => setNewContract({...newContract, note: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, note: e.target.value })}
                       placeholder="e.g. NOTE: Please review the terms carefully..."
                       className="w-full px-6 py-4 bg-rose-50 border border-rose-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all min-h-[100px] text-rose-900"
                     />
@@ -4590,29 +4585,29 @@ export default function App() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={newContract.contactPerson}
-                        onChange={(e) => setNewContract({...newContract, contactPerson: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, contactPerson: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Role</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="CEO"
                         value={newContract.contactRole}
-                        onChange={(e) => setNewContract({...newContract, contactRole: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, contactRole: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Email</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         value={newContract.contactEmail}
-                        onChange={(e) => setNewContract({...newContract, contactEmail: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, contactEmail: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
@@ -4626,17 +4621,17 @@ export default function App() {
                     <div className="flex items-center justify-between px-1">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">How We Work</label>
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           type="button"
-                          onClick={() => setNewContract({...newContract, howWeWork: newContract.howWeWork + '\n# '})}
+                          onClick={() => setNewContract({ ...newContract, howWeWork: newContract.howWeWork + '\n# ' })}
                           className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-all flex items-center gap-1 text-[10px] font-bold uppercase"
                           title="Add Heading"
                         >
                           <Bold size={12} /> Heading
                         </button>
-                        <button 
+                        <button
                           type="button"
-                          onClick={() => setNewContract({...newContract, howWeWork: newContract.howWeWork + '\n* '})}
+                          onClick={() => setNewContract({ ...newContract, howWeWork: newContract.howWeWork + '\n* ' })}
                           className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-all flex items-center gap-1 text-[10px] font-bold uppercase"
                           title="Add Bullet"
                         >
@@ -4644,18 +4639,18 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-                    <textarea 
+                    <textarea
                       value={newContract.howWeWork}
-                      onChange={(e) => setNewContract({...newContract, howWeWork: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, howWeWork: e.target.value })}
                       placeholder="Describe how you work, process, etc. (Use # for headings, * for bullets)"
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all min-h-[150px]"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Terms & Conditions</label>
-                    <textarea 
+                    <textarea
                       value={newContract.terms}
-                      onChange={(e) => setNewContract({...newContract, terms: e.target.value})}
+                      onChange={(e) => setNewContract({ ...newContract, terms: e.target.value })}
                       placeholder="Enter the terms and conditions..."
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all min-h-[150px]"
                     />
@@ -4668,9 +4663,9 @@ export default function App() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Currency</label>
-                      <select 
+                      <select
                         value={newContract.currency}
-                        onChange={(e) => setNewContract({...newContract, currency: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, currency: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
                       >
                         <option value="PKR">PKR</option>
@@ -4681,29 +4676,29 @@ export default function App() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Amount</label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={newContract.amount}
-                        onChange={(e) => setNewContract({...newContract, amount: Number(e.target.value)})}
+                        onChange={(e) => setNewContract({ ...newContract, amount: Number(e.target.value) })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Date</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={newContract.contractDate}
-                        onChange={(e) => setNewContract({...newContract, contractDate: e.target.value})}
+                        onChange={(e) => setNewContract({ ...newContract, contractDate: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Document Version</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={newContract.version}
-                      onChange={(e) => setNewContract({...newContract, version: Number(e.target.value)})}
+                      onChange={(e) => setNewContract({ ...newContract, version: Number(e.target.value) })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
@@ -4716,14 +4711,14 @@ export default function App() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company Signature</label>
                       <div className="relative">
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept="image/*"
                           onChange={(e) => handleSignatureUpload(e, 'company')}
                           className="hidden"
                           id="company-sig-upload"
                         />
-                        <label 
+                        <label
                           htmlFor="company-sig-upload"
                           className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-100 transition-all overflow-hidden"
                         >
@@ -4741,14 +4736,14 @@ export default function App() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Signature</label>
                       <div className="relative">
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept="image/*"
                           onChange={(e) => handleSignatureUpload(e, 'client')}
                           className="hidden"
                           id="client-sig-upload"
                         />
-                        <label 
+                        <label
                           htmlFor="client-sig-upload"
                           className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-100 transition-all overflow-hidden"
                         >
@@ -4768,7 +4763,7 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0">
-                <button 
+                <button
                   onClick={addContract}
                   className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -4779,7 +4774,7 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-      
+
       {/* Edit Contract Modal */}
       <AnimatePresence>
         {showEditContract && editingContract && (
@@ -4820,29 +4815,29 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editingContract.clientName}
-                        onChange={(e) => setEditingContract({...editingContract, clientName: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, clientName: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Email</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         value={editingContract.clientEmail}
-                        onChange={(e) => setEditingContract({...editingContract, clientEmail: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, clientEmail: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Address</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={editingContract.clientAddress}
-                      onChange={(e) => setEditingContract({...editingContract, clientAddress: e.target.value})}
+                      onChange={(e) => setEditingContract({ ...editingContract, clientAddress: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
@@ -4853,27 +4848,27 @@ export default function App() {
                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Company Details</h3>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company Name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={editingContract.companyName}
-                      onChange={(e) => setEditingContract({...editingContract, companyName: e.target.value})}
+                      onChange={(e) => setEditingContract({ ...editingContract, companyName: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company Address</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={editingContract.companyAddress}
-                      onChange={(e) => setEditingContract({...editingContract, companyAddress: e.target.value})}
+                      onChange={(e) => setEditingContract({ ...editingContract, companyAddress: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest px-1">Important Note (Red)</label>
-                    <textarea 
+                    <textarea
                       value={editingContract.note}
-                      onChange={(e) => setEditingContract({...editingContract, note: e.target.value})}
+                      onChange={(e) => setEditingContract({ ...editingContract, note: e.target.value })}
                       className="w-full px-6 py-4 bg-rose-50 border border-rose-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all min-h-[100px] text-rose-900"
                     />
                   </div>
@@ -4885,28 +4880,28 @@ export default function App() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editingContract.contactPerson}
-                        onChange={(e) => setEditingContract({...editingContract, contactPerson: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, contactPerson: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Role</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editingContract.contactRole}
-                        onChange={(e) => setEditingContract({...editingContract, contactRole: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, contactRole: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Email</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         value={editingContract.contactEmail}
-                        onChange={(e) => setEditingContract({...editingContract, contactEmail: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, contactEmail: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
@@ -4920,17 +4915,17 @@ export default function App() {
                     <div className="flex items-center justify-between px-1">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">How We Work</label>
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           type="button"
-                          onClick={() => setEditingContract({...editingContract, howWeWork: editingContract.howWeWork + '\n# '})}
+                          onClick={() => setEditingContract({ ...editingContract, howWeWork: editingContract.howWeWork + '\n# ' })}
                           className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-all flex items-center gap-1 text-[10px] font-bold uppercase"
                           title="Add Heading"
                         >
                           <Bold size={12} /> Heading
                         </button>
-                        <button 
+                        <button
                           type="button"
-                          onClick={() => setEditingContract({...editingContract, howWeWork: editingContract.howWeWork + '\n* '})}
+                          onClick={() => setEditingContract({ ...editingContract, howWeWork: editingContract.howWeWork + '\n* ' })}
                           className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-all flex items-center gap-1 text-[10px] font-bold uppercase"
                           title="Add Bullet"
                         >
@@ -4938,17 +4933,17 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-                    <textarea 
+                    <textarea
                       value={editingContract.howWeWork}
-                      onChange={(e) => setEditingContract({...editingContract, howWeWork: e.target.value})}
+                      onChange={(e) => setEditingContract({ ...editingContract, howWeWork: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all min-h-[150px]"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Terms & Conditions</label>
-                    <textarea 
+                    <textarea
                       value={editingContract.terms}
-                      onChange={(e) => setEditingContract({...editingContract, terms: e.target.value})}
+                      onChange={(e) => setEditingContract({ ...editingContract, terms: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all min-h-[150px]"
                     />
                   </div>
@@ -4960,9 +4955,9 @@ export default function App() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Currency</label>
-                      <select 
+                      <select
                         value={editingContract.currency}
-                        onChange={(e) => setEditingContract({...editingContract, currency: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, currency: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
                       >
                         <option value="PKR">PKR</option>
@@ -4973,29 +4968,29 @@ export default function App() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Amount</label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={editingContract.amount}
-                        onChange={(e) => setEditingContract({...editingContract, amount: Number(e.target.value)})}
+                        onChange={(e) => setEditingContract({ ...editingContract, amount: Number(e.target.value) })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Date</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={editingContract.contractDate}
-                        onChange={(e) => setEditingContract({...editingContract, contractDate: e.target.value})}
+                        onChange={(e) => setEditingContract({ ...editingContract, contractDate: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Document Version</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={editingContract.version}
-                      onChange={(e) => setEditingContract({...editingContract, version: Number(e.target.value)})}
+                      onChange={(e) => setEditingContract({ ...editingContract, version: Number(e.target.value) })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
@@ -5008,14 +5003,14 @@ export default function App() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Company Signature</label>
                       <div className="relative">
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept="image/*"
                           onChange={(e) => handleEditSignatureUpload(e, 'company')}
                           className="hidden"
                           id="edit-company-sig-upload"
                         />
-                        <label 
+                        <label
                           htmlFor="edit-company-sig-upload"
                           className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-100 transition-all overflow-hidden"
                         >
@@ -5033,14 +5028,14 @@ export default function App() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Signature</label>
                       <div className="relative">
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept="image/*"
                           onChange={(e) => handleEditSignatureUpload(e, 'client')}
                           className="hidden"
                           id="edit-client-sig-upload"
                         />
-                        <label 
+                        <label
                           htmlFor="edit-client-sig-upload"
                           className="flex flex-col items-center justify-center w-full h-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-100 transition-all overflow-hidden"
                         >
@@ -5060,7 +5055,7 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0">
-                <button 
+                <button
                   onClick={updateContract}
                   className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -5076,14 +5071,14 @@ export default function App() {
       <AnimatePresence>
         {showAddClient && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAddClient(false)}
               className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -5095,7 +5090,7 @@ export default function App() {
                     <h3 className="text-2xl font-black text-gray-900">Add New Client</h3>
                     <p className="text-gray-400 font-medium mt-1">Manage a new client relationship.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setShowAddClient(false)}
                     className="self-end sm:self-auto p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-2xl transition-all"
                   >
@@ -5106,8 +5101,8 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="col-span-2 space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newClient.name}
                       onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
@@ -5116,7 +5111,7 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Status</label>
-                    <select 
+                    <select
                       value={newClient.status}
                       onChange={(e) => setNewClient({ ...newClient, status: e.target.value as any })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
@@ -5128,7 +5123,7 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Currency</label>
-                    <select 
+                    <select
                       value={newClient.currency}
                       onChange={(e) => setNewClient({ ...newClient, currency: e.target.value })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
@@ -5141,8 +5136,8 @@ export default function App() {
                   </div>
                   <div className="col-span-2 space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Scope</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={newClient.scope}
                       onChange={(e) => setNewClient({ ...newClient, scope: e.target.value })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
@@ -5151,8 +5146,8 @@ export default function App() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Amount</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={newClient.amount}
                       onChange={(e) => setNewClient({ ...newClient, amount: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
@@ -5161,7 +5156,7 @@ export default function App() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Handling</label>
                     <div className="flex items-center gap-3 h-[52px]">
-                      <button 
+                      <button
                         onClick={() => setNewClient({ ...newClient, isAutoCycle: !newClient.isAutoCycle })}
                         className={`flex-1 h-full rounded-2xl border transition-all flex items-center justify-center gap-2 font-bold text-xs ${newClient.isAutoCycle ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-400 border-gray-100'}`}
                       >
@@ -5174,8 +5169,8 @@ export default function App() {
                     <>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Start Date</label>
-                        <input 
-                          type="date" 
+                        <input
+                          type="date"
                           value={newClient.date}
                           onChange={(e) => setNewClient({ ...newClient, date: e.target.value })}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
@@ -5183,8 +5178,8 @@ export default function App() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Due Date</label>
-                        <input 
-                          type="date" 
+                        <input
+                          type="date"
                           value={newClient.dueDate}
                           onChange={(e) => setNewClient({ ...newClient, dueDate: e.target.value })}
                           className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
@@ -5195,22 +5190,22 @@ export default function App() {
                 </div>
 
                 <div className="mt-10 flex gap-4">
-                  <button 
+                  <button
                     onClick={() => setShowAddClient(false)}
                     className="flex-1 px-8 py-4 rounded-2xl font-black text-sm text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-all"
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       if (!newClient.name) {
                         toast.error('Please enter a client name');
                         return;
                       }
-                      
+
                       let finalDate = newClient.date;
                       let finalDueDate = newClient.dueDate;
-                      
+
                       if (newClient.isAutoCycle) {
                         const now = new Date();
                         finalDate = now.toISOString().split('T')[0];
@@ -5283,17 +5278,16 @@ export default function App() {
                   <X size={24} />
                 </button>
               </div>
-
               <div className="p-6 sm:p-10 space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Domain Name</label>
                   <div className="relative">
                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="example.com"
                       value={newHosting.domain}
-                      onChange={(e) => setNewHosting({...newHosting, domain: e.target.value})}
+                      onChange={(e) => setNewHosting({ ...newHosting, domain: e.target.value })}
                       className="w-full pl-12 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
@@ -5304,19 +5298,19 @@ export default function App() {
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Amount</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">PKR</span>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={newHosting.amount}
-                        onChange={(e) => setNewHosting({...newHosting, amount: Number(e.target.value)})}
+                        onChange={(e) => setNewHosting({ ...newHosting, amount: Number(e.target.value) })}
                         className="w-full pl-14 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Period</label>
-                    <select 
+                    <select
                       value={newHosting.period}
-                      onChange={(e) => setNewHosting({...newHosting, period: e.target.value as HostingPeriod})}
+                      onChange={(e) => setNewHosting({ ...newHosting, period: e.target.value as HostingPeriod })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all appearance-none"
                     >
                       <option value="None">Default (1 Week)</option>
@@ -5332,16 +5326,16 @@ export default function App() {
                 {newHosting.period === 'Custom' && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Due Date (Manual)</label>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={newHosting.dueDate}
-                      onChange={(e) => setNewHosting({...newHosting, dueDate: e.target.value})}
+                      onChange={(e) => setNewHosting({ ...newHosting, dueDate: e.target.value })}
                       className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                     />
                   </div>
                 )}
 
-                <button 
+                <button
                   onClick={addHosting}
                   className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 mt-4"
                 >
@@ -5383,8 +5377,8 @@ export default function App() {
               <div className="p-6 sm:p-10 space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={newWebsiteForm.name}
                     onChange={(e) => setNewWebsiteForm({ ...newWebsiteForm, name: e.target.value })}
                     placeholder="Enter client or company name"
@@ -5394,8 +5388,8 @@ export default function App() {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Website Link</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={newWebsiteForm.websiteLink}
                     onChange={(e) => setNewWebsiteForm({ ...newWebsiteForm, websiteLink: e.target.value })}
                     placeholder="www.example.com"
@@ -5403,7 +5397,7 @@ export default function App() {
                   />
                 </div>
 
-                <button 
+                <button
                   onClick={addWebsiteClient}
                   className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -5445,8 +5439,8 @@ export default function App() {
               <div className="p-6 sm:p-10 space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Client Name</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={editingWebsite.name}
                     onChange={(e) => setEditingWebsite({ ...editingWebsite, name: e.target.value })}
                     placeholder="Enter client or company name"
@@ -5456,8 +5450,8 @@ export default function App() {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Website Link</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={editingWebsite.websiteLink}
                     onChange={(e) => setEditingWebsite({ ...editingWebsite, websiteLink: e.target.value })}
                     placeholder="www.example.com"
@@ -5465,7 +5459,7 @@ export default function App() {
                   />
                 </div>
 
-                <button 
+                <button
                   onClick={updateWebsiteClient}
                   className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -5519,9 +5513,9 @@ export default function App() {
 
               <div className="p-6 sm:p-8 border-t border-gray-100 bg-gray-50/50">
                 <div className="flex gap-3">
-                  <input 
-                    type="text" 
-                    placeholder="Type a note..." 
+                  <input
+                    type="text"
+                    placeholder="Type a note..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -5532,7 +5526,7 @@ export default function App() {
                     }}
                     className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-white border border-gray-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all"
                   />
-                  <button 
+                  <button
                     onClick={() => {
                       if (chatInput.trim()) {
                         setMessages([...messages, { id: Math.random().toString(36).substr(2, 9), text: chatInput, sender: 'User', timestamp: new Date().toISOString() }]);
@@ -5580,7 +5574,7 @@ export default function App() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-black">User Management</h3>
-                      <button 
+                      <button
                         onClick={() => setShowAddUser(true)}
                         className="bg-gray-900 text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-gray-800 transition-all flex items-center gap-2"
                       >
@@ -5614,13 +5608,13 @@ export default function App() {
                               </span>
                             </div>
                             <div className="col-span-1 text-right flex items-center justify-end gap-2">
-                              <button 
+                              <button
                                 onClick={() => setEditingUser(user)}
                                 className="p-2 text-gray-300 hover:text-gray-900 transition-all"
                               >
                                 <Edit size={16} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => deleteUser(user.id)}
                                 className="p-2 text-gray-300 hover:text-rose-500 transition-all"
                               >
@@ -5736,7 +5730,7 @@ export default function App() {
                       <ClipboardList size={20} />
                       Quotation Scope
                     </h3>
-                    <button 
+                    <button
                       onClick={addQuotationItem}
                       className="text-gray-900 font-black text-xs hover:underline flex items-center gap-2"
                     >
@@ -5773,7 +5767,7 @@ export default function App() {
                             />
                           </div>
                           <div className="col-span-1 text-right">
-                            <button 
+                            <button
                               onClick={() => removeQuotationItem(item.id)}
                               className="p-2 text-gray-300 hover:text-rose-500 transition-all"
                             >
@@ -5835,7 +5829,7 @@ export default function App() {
                               className="w-32 px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all font-black text-lg"
                             />
                             {newQuotation.totalCost !== undefined && newQuotation.totalCost !== 0 && (
-                              <button 
+                              <button
                                 onClick={() => setNewQuotation({ ...newQuotation, totalCost: undefined })}
                                 className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-900 transition-all"
                                 title="Reset to calculated total"
@@ -5872,13 +5866,13 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-4 shrink-0">
-                <button 
+                <button
                   onClick={() => setShowAddQuotation(false)}
                   className="px-8 py-4 rounded-2xl font-black text-sm text-gray-400 hover:text-gray-900 transition-all"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={addQuotation}
                   className="px-10 py-4 bg-gray-900 text-white rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -6012,7 +6006,7 @@ export default function App() {
                       <List size={20} />
                       Services Row
                     </h3>
-                    <button 
+                    <button
                       onClick={addInvoiceService}
                       className="text-gray-900 font-black text-xs hover:underline flex items-center gap-2"
                     >
@@ -6049,7 +6043,7 @@ export default function App() {
                             />
                           </div>
                           <div className="col-span-1 text-right">
-                            <button 
+                            <button
                               onClick={() => removeInvoiceService(item.id)}
                               className="p-2 text-gray-300 hover:text-rose-500 transition-all"
                             >
@@ -6140,13 +6134,13 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-4 shrink-0">
-                <button 
+                <button
                   onClick={() => setShowAddInvoice(false)}
                   className="px-8 py-4 rounded-2xl font-black text-sm text-gray-400 hover:text-gray-900 transition-all"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={addInvoice}
                   className="px-10 py-4 bg-gray-900 text-white rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -6286,7 +6280,7 @@ export default function App() {
                       <List size={20} />
                       Services Row
                     </h3>
-                    <button 
+                    <button
                       onClick={addInvoiceService}
                       className="text-gray-900 font-black text-xs hover:underline flex items-center gap-2"
                     >
@@ -6323,7 +6317,7 @@ export default function App() {
                             />
                           </div>
                           <div className="col-span-1 text-right">
-                            <button 
+                            <button
                               onClick={() => removeInvoiceService(item.id)}
                               className="p-2 text-gray-300 hover:text-rose-500 transition-all"
                             >
@@ -6414,7 +6408,7 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-4 shrink-0">
-                <button 
+                <button
                   onClick={() => {
                     setShowEditInvoice(false);
                     setEditingInvoice(null);
@@ -6423,7 +6417,7 @@ export default function App() {
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={updateInvoice}
                   className="px-10 py-4 bg-gray-900 text-white rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -6538,7 +6532,7 @@ export default function App() {
                       <ClipboardList size={20} />
                       Quotation Scope
                     </h3>
-                    <button 
+                    <button
                       onClick={addEditQuotationItem}
                       className="text-gray-900 font-black text-xs hover:underline flex items-center gap-2"
                     >
@@ -6575,7 +6569,7 @@ export default function App() {
                             />
                           </div>
                           <div className="col-span-1 text-right">
-                            <button 
+                            <button
                               onClick={() => removeEditQuotationItem(item.id)}
                               className="p-2 text-gray-300 hover:text-rose-500 transition-all"
                             >
@@ -6637,7 +6631,7 @@ export default function App() {
                               className="w-32 px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all font-black text-lg"
                             />
                             {editingQuotation.totalCost !== undefined && editingQuotation.totalCost !== 0 && (
-                              <button 
+                              <button
                                 onClick={() => setEditingQuotation({ ...editingQuotation, totalCost: undefined })}
                                 className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-900 transition-all"
                                 title="Reset to calculated total"
@@ -6674,7 +6668,7 @@ export default function App() {
               </div>
 
               <div className="p-10 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-4 shrink-0">
-                <button 
+                <button
                   onClick={() => {
                     setShowEditQuotation(false);
                     setEditingQuotation(null);
@@ -6683,7 +6677,7 @@ export default function App() {
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={updateQuotation}
                   className="px-10 py-4 bg-gray-900 text-white rounded-[1.5rem] font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
                 >
@@ -6774,7 +6768,7 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4 pt-4">
                   <button
                     onClick={() => setShowAddUser(false)}
@@ -6872,7 +6866,7 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4 pt-4">
                   <button
                     onClick={() => setEditingUser(null)}
@@ -6932,7 +6926,7 @@ export default function App() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="flex gap-4 pt-4">
                   <button
                     onClick={() => setShowAddMonth(false)}
@@ -6989,7 +6983,7 @@ export default function App() {
                     className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-gray-900 transition-all font-bold"
                   />
                 </div>
-                
+
                 <div className="flex gap-4 pt-4">
                   <button
                     onClick={() => setShowAddDay(false)}
@@ -7028,115 +7022,115 @@ export default function App() {
                   <X size={24} />
                 </button>
               </div>
-               <div className="p-6 sm:p-10 space-y-6">
-                 {/* Existing Payments */}
-                 {(() => {
-                   const inv = invoices.find(i => i.id === payDropdownInvoiceId);
-                   const payments = inv?.payments || [];
-                   if (payments.length === 0) return null;
-                   return (
-                     <div>
-                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment History</p>
-                       <div className="space-y-2 max-h-48 overflow-y-auto">
-                         {payments.map(payment => (
-                           <div key={payment.id} className="flex items-center justify-between bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-100">
-                             <div className="flex-1 min-w-0">
-                               <p className="text-sm font-bold text-emerald-700">{inv?.currency} {payment.amount.toLocaleString()}</p>
-                               {payment.note && <p className="text-xs text-gray-500 truncate">{payment.note}</p>}
-                               <p className="text-xs text-gray-400 mt-1">{payment.date} {payment.method && `· ${payment.method}`}</p>
-                             </div>
-                             <button
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 if (confirm('Delete this payment?')) {
-                                   deletePayment(payDropdownInvoiceId, payment.id);
-                                 }
-                               }}
-                               className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all ml-2 shrink-0"
-                               title="Delete payment"
-                             >
-                               <Trash2 size={16} />
-                             </button>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   );
-                 })()}
+              <div className="p-6 sm:p-10 space-y-2">
+                {/* Existing Payments */}
+                {(() => {
+                  const inv = invoices.find(i => i.id === payDropdownInvoiceId);
+                  const payments = inv?.payments || [];
+                  if (payments.length === 0) return null;
+                  return (
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment History</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {payments.map(payment => (
+                          <div key={payment.id} className="flex items-center justify-between bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-100">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-emerald-700">{inv?.currency} {payment.amount.toLocaleString()}</p>
+                              {payment.note && <p className="text-xs text-gray-500 truncate">{payment.note}</p>}
+                              <p className="text-xs text-gray-400 mt-1">{payment.date} {payment.method && `· ${payment.method}`}</p>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('Delete this payment?')) {
+                                  deletePayment(payDropdownInvoiceId, payment.id);
+                                }
+                              }}
+                              className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all ml-2 shrink-0"
+                              title="Delete payment"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
-                 {/* Amount */}
-                 <div>
-                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Amount (PKR)</label>
-                   <input
-                     type="number"
-                     value={payAmount}
-                     onChange={(e) => setPayAmount(Number(e.target.value))}
-                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
-                   />
-                   <p className="text-xs text-gray-400 mt-1">
-                     Remaining due: {(() => {
-                       const inv = invoices.find(i => i.id === payDropdownInvoiceId);
-                       const paid = inv?.payments?.reduce((s, p) => s + p.amount, 0) || 0;
-                       const rem = inv ? inv.dueAmount - paid : 0;
-                       return `${inv?.currency || 'PKR'} ${rem.toLocaleString()}`;
-                     })()}
-                   </p>
-                 </div>
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Amount (PKR)</label>
+                  <input
+                    type="number"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(Number(e.target.value))}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Remaining due: {(() => {
+                      const inv = invoices.find(i => i.id === payDropdownInvoiceId);
+                      const paid = inv?.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+                      const rem = inv ? inv.dueAmount - paid : 0;
+                      return `${inv?.currency || 'PKR'} ${rem.toLocaleString()}`;
+                    })()}
+                  </p>
+                </div>
 
-                 {/* Payment Date */}
-                 <div>
-                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Payment Date</label>
-                   <input
-                     type="date"
-                     value={payDate}
-                     onChange={(e) => setPayDate(e.target.value)}
-                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
-                   />
-                 </div>
+                {/* Payment Date */}
+                <div>
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Payment Date</label>
+                  <input
+                    type="date"
+                    value={payDate}
+                    onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
+                  />
+                </div>
 
-                 {/* Payment Method */}
-                 <div>
-                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Payment Method</label>
-                   <select
-                     value={payMethod}
-                     onChange={(e) => setPayMethod(e.target.value)}
-                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
-                   >
-                     {savedPaymentMethods.map(pm => (
-                       <option key={pm.id} value={pm.method}>{pm.method}</option>
-                     ))}
-                   </select>
-                 </div>
+                {/* Payment Method */}
+                <div>
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Payment Method</label>
+                  <select
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
+                  >
+                    {savedPaymentMethods.map(pm => (
+                      <option key={pm.id} value={pm.method}>{pm.method}</option>
+                    ))}
+                  </select>
+                </div>
 
-                 {/* Note (Optional) */}
-                 <div>
-                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Note (Optional)</label>
-                   <textarea
-                     value={payNote}
-                     onChange={(e) => setPayNote(e.target.value)}
-                     placeholder="Add any additional notes..."
-                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all min-h-[80px] resize-none"
-                   />
-                 </div>
-               </div>
-              <div className="p-6 sm:p-10 pt-0 flex gap-4">
+                {/* Note (Optional) */}
+                <div>
+                  <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Note (Optional)</label>
+                  <textarea
+                    value={payNote}
+                    onChange={(e) => setPayNote(e.target.value)}
+                    placeholder="Add any additional notes..."
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all min-h-[80px] resize-none"
+                  />
+                </div>
+              </div>
+              <div className="p-6 sm:p-10 pt-0 flex gap-4" style={{ marginTop: "-70px" }}>
                 <button
                   onClick={closePayDropdown}
                   className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
                 >
                   Cancel
                 </button>
-                 <button
-                   onClick={() => {
-                     if (payDropdownInvoiceId) {
-                       recordPartialPayment(payDropdownInvoiceId, payAmount, payMethod, payNote);
-                       closePayDropdown();
-                     }
-                   }}
-                   className="flex-1 bg-gray-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
-                 >
-                   Record Payment
-                 </button>
+                <button
+                  onClick={() => {
+                    if (payDropdownInvoiceId) {
+                      recordPartialPayment(payDropdownInvoiceId, payAmount, payMethod, payNote);
+                      closePayDropdown();
+                    }
+                  }}
+                  className="flex-1 bg-gray-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
+                >
+                  Record Payment
+                </button>
               </div>
             </motion.div>
           </div>
@@ -7163,10 +7157,10 @@ const getStatusColor = (status: ProjectStatus) => {
   }
 };
 
-const ProjectRow: FC<ProjectRowProps> = ({ 
-  project, 
-  onUpdate, 
-  onDelete 
+const ProjectRow: FC<ProjectRowProps> = ({
+  project,
+  onUpdate,
+  onDelete
 }) => {
   const pendingAmount = project.cost - project.received;
   const trade5 = project.cost * 0.05;
@@ -7181,17 +7175,17 @@ const ProjectRow: FC<ProjectRowProps> = ({
   return (
     <div className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-10 py-5 items-center hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0">
       <div className="col-span-3">
-        <input 
-          type="text" 
-          value={project.name} 
+        <input
+          type="text"
+          value={project.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
           className="w-full bg-transparent font-bold text-sm focus:outline-none focus:ring-1 focus:ring-gray-900 rounded px-1"
         />
       </div>
       <div className="col-span-1">
         <div className={`rounded-lg border px-2 py-0 ${statusColor} transition-colors`}>
-          <select 
-            value={project.status} 
+          <select
+            value={project.status}
             onChange={(e) => onUpdate({ status: e.target.value as ProjectStatus })}
             className="w-full bg-transparent text-[10px] font-black uppercase tracking-tighter focus:outline-none cursor-pointer appearance-none"
           >
@@ -7206,9 +7200,9 @@ const ProjectRow: FC<ProjectRowProps> = ({
       <div className="col-span-1">
         <div className="relative">
           <span className="absolute left-0 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none"></span>
-          <input 
-            type="number" 
-            value={project.cost || ''} 
+          <input
+            type="number"
+            value={project.cost || ''}
             placeholder="0"
             onChange={(e) => onUpdate({ cost: Number(e.target.value) })}
             className="w-full bg-transparent text-sm font-medium focus:outline-none pl-3"
@@ -7218,9 +7212,9 @@ const ProjectRow: FC<ProjectRowProps> = ({
       <div className="col-span-1">
         <div className="relative">
           <span className="absolute left-0 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none"></span>
-          <input 
-            type="number" 
-            value={project.received || ''} 
+          <input
+            type="number"
+            value={project.received || ''}
             placeholder="0"
             onChange={(e) => onUpdate({ received: Number(e.target.value) })}
             className="w-full bg-transparent text-sm font-medium focus:outline-none pl-5"
@@ -7236,9 +7230,9 @@ const ProjectRow: FC<ProjectRowProps> = ({
       <div className="col-span-1">
         <div className="relative">
           <span className="absolute left-0 top-1/2 transform -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">PKR</span>
-          <input 
-            type="number" 
-            value={project.expressExpense || ''} 
+          <input
+            type="number"
+            value={project.expressExpense || ''}
             placeholder="0"
             onChange={(e) => onUpdate({ expressExpense: Number(e.target.value) })}
             className="w-full bg-transparent text-sm font-medium focus:outline-none pl-8"
@@ -7249,8 +7243,8 @@ const ProjectRow: FC<ProjectRowProps> = ({
         {formatCurrency(profit)}
       </div>
       <div className="col-span-1">
-        <select 
-          value={project.paymentStatus} 
+        <select
+          value={project.paymentStatus}
           onChange={(e) => onUpdate({ paymentStatus: e.target.value as PaymentStatus })}
           className={`w-full bg-transparent text-[10px] font-black uppercase tracking-wider focus:outline-none cursor-pointer ${project.paymentStatus === 'Paid' ? 'text-emerald-600' : 'text-rose-500'}`}
         >
@@ -7276,13 +7270,13 @@ interface MonthCardProps {
   onUpdateProject: (id: string, updates: Partial<Project>) => void;
 }
 
-const MonthCard: FC<MonthCardProps> = ({ 
-  section, 
-  onToggle, 
-  onDelete, 
-  onAddProject, 
-  onDeleteProject, 
-  onUpdateProject 
+const MonthCard: FC<MonthCardProps> = ({
+  section,
+  onToggle,
+  onDelete,
+  onAddProject,
+  onDeleteProject,
+  onUpdateProject
 }) => {
   const [projectName, setProjectName] = useState('');
 
@@ -7327,9 +7321,9 @@ const MonthCard: FC<MonthCardProps> = ({
                       const percentage = (count / section.projects.length) * 100;
                       const color = getStatusColor(status as ProjectStatus).split(' ')[0];
                       return (
-                        <div 
-                          key={status} 
-                          style={{ width: `${percentage}%` }} 
+                        <div
+                          key={status}
+                          style={{ width: `${percentage}%` }}
                           className={color}
                           title={`${status}: ${count}`}
                         />
@@ -7338,9 +7332,9 @@ const MonthCard: FC<MonthCardProps> = ({
                   </div>
                   <div className="flex gap-1">
                     {section.projects.slice(0, 5).map(p => (
-                      <div 
-                        key={p.id} 
-                        className={`w-1.5 h-1.5 rounded-full ${getStatusColor(p.status).split(' ')[0]}`} 
+                      <div
+                        key={p.id}
+                        className={`w-1.5 h-1.5 rounded-full ${getStatusColor(p.status).split(' ')[0]}`}
                       />
                     ))}
                     {section.projects.length > 5 && <span className="text-[8px] font-bold text-gray-400">+{section.projects.length - 5}</span>}
@@ -7348,12 +7342,12 @@ const MonthCard: FC<MonthCardProps> = ({
                 </div>
               )}
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-2">
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
                 {section.projects.length} {section.projects.length === 1 ? 'Project' : 'Projects'}
               </p>
-              
+
               {!section.isExpanded ? (
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-xl border border-gray-100">
@@ -7416,12 +7410,12 @@ const MonthCard: FC<MonthCardProps> = ({
                 <div className="col-span-1">Payment</div>
                 <div className="col-span-1 text-right"></div>
               </div>
-              
+
               <div className="divide-y divide-gray-50">
                 {section.projects.map(project => (
-                  <ProjectRow 
-                    key={project.id} 
-                    project={project} 
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
                     onUpdate={(updates) => onUpdateProject(project.id, updates)}
                     onDelete={() => onDeleteProject(project.id)}
                   />
@@ -7486,7 +7480,7 @@ const DayCard: FC<DayCardProps> = ({ section, onToggle, onDelete, onAddTask, onD
       className="bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden"
     >
       <div className="p-6 sm:p-8 flex items-center justify-between">
-        <button 
+        <button
           onClick={onToggle}
           className="flex items-center gap-4 sm:gap-6 group flex-1 text-left"
         >
@@ -7499,7 +7493,7 @@ const DayCard: FC<DayCardProps> = ({ section, onToggle, onDelete, onAddTask, onD
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
                 {section.tasks.length} {section.tasks.length === 1 ? 'Task' : 'Tasks'}
               </p>
-              
+
               {!section.isExpanded && section.tasks.length > 0 && (
                 <div className="flex gap-2">
                   {statusCounts['Pending'] > 0 && (
@@ -7592,7 +7586,7 @@ const SidebarItem: FC<{ icon: ReactNode, label: string, active?: boolean, onClic
   };
 
   return (
-    <button 
+    <button
       onClick={handleClick}
       className={`w-full flex items-center justify-between p-3.5 rounded-2xl transition-all group ${active ? 'bg-gray-900 text-white shadow-xl shadow-gray-200' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'}`}
     >
@@ -7613,14 +7607,14 @@ const SidebarItem: FC<{ icon: ReactNode, label: string, active?: boolean, onClic
 
 const StatCard: FC<{ label: string, value: number, color: string, isCurrency?: boolean, currency?: 'PKR' | 'USD', onCurrencyToggle?: () => void }> = ({ label, value, color, isCurrency, currency = 'PKR', onCurrencyToggle }) => {
   const displayValue = isCurrency && currency === 'USD' ? value / 280 : value;
-  
+
   return (
     <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-between h-32 sm:h-40 group hover:shadow-xl hover:shadow-gray-100 transition-all relative overflow-hidden">
       <div className="flex items-center justify-between relative z-10">
         <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-gray-400">{label}</p>
         <div className="flex items-center gap-2">
           {isCurrency && onCurrencyToggle && (
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 onCurrencyToggle();
@@ -7652,7 +7646,7 @@ const ProjectPreviewCard: FC<ProjectPreviewCardProps> = ({ project, onClick }) =
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
 
   return (
-    <button 
+    <button
       onClick={onClick}
       className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm text-left group hover:shadow-xl hover:shadow-gray-100 transition-all"
     >
@@ -7664,9 +7658,9 @@ const ProjectPreviewCard: FC<ProjectPreviewCardProps> = ({ project, onClick }) =
       </div>
       <h4 className="font-black text-gray-900 mb-1 truncate">{project.name}</h4>
       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{total} Tasks</p>
-      
+
       <div className="mt-4 h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
-        <motion.div 
+        <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
           className="h-full bg-gray-900"
@@ -7709,7 +7703,7 @@ const ProjectCard: FC<ProjectCardProps> = ({ project, onToggle, onDelete, onAddT
       className="bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden"
     >
       <div className="p-6 sm:p-8 flex items-center justify-between">
-        <button 
+        <button
           onClick={onToggle}
           className="flex items-center gap-4 sm:gap-6 group flex-1 text-left"
         >
@@ -7722,7 +7716,7 @@ const ProjectCard: FC<ProjectCardProps> = ({ project, onToggle, onDelete, onAddT
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
                 {(project.tasks || []).length} {(project.tasks || []).length === 1 ? 'Task' : 'Tasks'}
               </p>
-              
+
               {!project.isExpanded && (project.tasks || []).length > 0 && (
                 <div className="flex gap-2">
                   {statusCounts['Pending'] > 0 && (
@@ -7886,11 +7880,10 @@ const ClientRow: FC<ClientRowProps> = ({ client, onDelete, onUpdate }) => {
           <select
             value={client.status}
             onChange={(e) => onUpdate({ status: e.target.value as any })}
-            className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer ${
-              client.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 
-              client.status === 'Pending' ? 'bg-amber-50 text-amber-700' : 
-              'bg-gray-50 text-gray-400'
-            }`}
+            className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer ${client.status === 'Active' ? 'bg-emerald-50 text-emerald-700' :
+              client.status === 'Pending' ? 'bg-amber-50 text-amber-700' :
+                'bg-gray-50 text-gray-400'
+              }`}
           >
             <option value="Active">Active</option>
             <option value="Pending">Pending</option>
@@ -8015,9 +8008,8 @@ const HostingRow: FC<HostingRowProps> = ({ hosting, onDelete, onUpdate }) => {
             <select
               value={hosting.paymentStatus}
               onChange={(e) => onUpdate({ paymentStatus: e.target.value as PaymentStatus })}
-              className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer ${
-                hosting.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-              }`}
+              className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer ${hosting.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                }`}
             >
               <option value="Pending">Pending</option>
               <option value="Paid">Paid</option>
@@ -8035,9 +8027,8 @@ const HostingRow: FC<HostingRowProps> = ({ hosting, onDelete, onUpdate }) => {
             <select
               value={hosting.invoiceStatus}
               onChange={(e) => onUpdate({ invoiceStatus: e.target.value as InvoiceStatus })}
-              className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer ${
-                hosting.invoiceStatus === 'Completed' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'
-              }`}
+              className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer ${hosting.invoiceStatus === 'Completed' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'
+                }`}
             >
               <option value="Pending">Pending</option>
               <option value="Completed">Completed</option>
