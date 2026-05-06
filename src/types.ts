@@ -36,6 +36,8 @@ export interface Project {
   received: number;
   expressExpense: number;
   paymentStatus: PaymentStatus;
+  tasks: Task[];
+  isExpanded: boolean;
 }
 
 export interface MonthSection {
@@ -151,6 +153,9 @@ export interface PaymentRecord {
   method?: string;
   note?: string;
 }
+
+// NOTE: Ensure your Supabase 'invoices' table has a 'payments' column of type jsonb DEFAULT '[]'
+// Without this column, payment recording will fail.
 
 export interface Invoice {
   id: string;

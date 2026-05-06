@@ -39,9 +39,15 @@ import {
   Lock,
   ClipboardList,
   RotateCcw,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  BarChart3
 } from 'lucide-react';
-import { Project, Task, Status, DaySection, User as UserType, ProjectStatus, PaymentStatus, MonthSection, Hosting, HostingPeriod, InvoiceStatus, Contract, PipelineClient, PipelineStatus, FollowUpStatus, UserRole, Quotation, QuotationItem, Client, Reminder, Invoice, InvoiceService, Expense, ExpenseGroup, WebsiteClient } from './types';
+import { ReportData } from './components/Reports';
+import { 
+  Project, Task, Status, DaySection, User as UserType, ProjectStatus, PaymentStatus, MonthSection, Hosting, HostingPeriod, InvoiceStatus, Contract, PipelineClient, PipelineStatus, FollowUpStatus, UserRole, Quotation, QuotationItem, Client, Reminder, Invoice, InvoiceService, Expense, ExpenseGroup, WebsiteClient, PaymentRecord
+} from './types';
+import Reports from './components/Reports';
 
 const STORAGE_KEY = 'greypixel_dashboard_v2';
 const DAYS_STORAGE_KEY = 'greypixel_days_v1';
@@ -102,7 +108,7 @@ export default function App() {
     nodeEnv: import.meta.env.MODE
   });
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses' | 'websites'>('dashboard');
+   const [activeTab, setActiveTab] = useState<'dashboard' | 'tasks' | 'projects' | 'hosting' | 'contracts' | 'pipeline' | 'quotations' | 'clients' | 'invoices' | 'expenses' | 'websites' | 'reports'>('dashboard');
   const [revenueCurrency, setRevenueCurrency] = useState<'PKR' | 'USD'>('PKR');
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true);
   const [isLoading, setIsLoading] = useState(true);
@@ -252,62 +258,69 @@ export default function App() {
     fetchAllData();
   }, []);
 
-  // Helper to save data to Supabase with better error handling
-  const saveToSupabase = async (table: string, data: any[], showErrorToast = false, previousData: any[] = []) => {
-    try {
-      // Skip sync if no data - this prevents accidentally deleting all data
-      if (!data || data.length === 0) {
-        console.log(`Skipping sync for ${table}: no data to sync`);
-        return true;
-      }
+   // Helper to save data to Supabase with better error handling
+   const saveToSupabase = async (table: string, data: any[], showErrorToast = false, previousData: any[] = []) => {
+     try {
+       if (!data || data.length === 0) {
+         console.log(`Skipping sync for ${table}: no data to sync`);
+         return true;
+       }
 
-      console.log(`Syncing ${data.length} items to ${table}`);
+       console.log(`Syncing ${data.length} items to ${table}`);
 
-      // Use individual upsert operations for better reliability
-      const results = await Promise.allSettled(
-        data.map(item =>
-          supabase.from(table).upsert(item, {
-            onConflict: 'id'
-          })
-        )
-      );
+       // Prepare data: only include fields that exist in the table
+       // This prevents errors when local schema differs from Supabase schema
+       const cleanedData = data.map(item => {
+         const cleaned: Record<string, any> = {};
+         Object.keys(item).forEach(key => {
+           const value = item[key];
+           if (value !== undefined && value !== null) {
+             cleaned[key] = value;
+           }
+         });
+         return cleaned;
+       });
 
-      const failures = results.filter(result => result.status === 'rejected');
-      const successes = results.filter(result => result.status === 'fulfilled');
+       const results = await Promise.all(
+         cleanedData.map(item =>
+           supabase.from(table).upsert(item, {
+             onConflict: 'id'
+           })
+         )
+       );
 
-      if (failures.length > 0) {
-        console.error(`${failures.length} items failed to sync to ${table}:`, failures);
-        if (showErrorToast) {
-          toast.error(`${failures.length} items failed to sync to cloud. Your data is safe locally.`);
-        }
-        return false;
-      }
+       const errors = results.filter(r => r.error);
+       if (errors.length > 0) {
+         console.error(`${errors.length} items failed to sync to ${table}:`, errors);
+         if (showErrorToast) {
+           const errMsgs = errors.map(e => e.error?.message || 'Unknown error').join('; ');
+           toast.error(`Sync failed: ${errMsgs}`);
+         }
+         return false;
+       }
 
-      // Handle deletions - remove items that exist in Supabase but not in local data
-      if (previousData.length > 0) {
-        const currentIds = new Set(data.map(item => item.id));
-        const toDelete = previousData.filter(item => !currentIds.has(item.id));
-        
-        if (toDelete.length > 0) {
-          console.log(`Deleting ${toDelete.length} items from ${table}`);
-          await Promise.allSettled(
-            toDelete.map(item =>
-              supabase.from(table).delete().eq('id', item.id)
-            )
-          );
-        }
-      }
+       if (previousData.length > 0) {
+         const currentIds = new Set(cleanedData.map(item => item.id));
+         const toDelete = previousData.filter(item => !currentIds.has(item.id));
+         if (toDelete.length > 0) {
+           console.log(`Deleting ${toDelete.length} items from ${table}`);
+           await Promise.allSettled(
+             toDelete.map(item =>
+               supabase.from(table).delete().eq('id', item.id)
+             )
+           );
+         }
+       }
 
-      console.log(`Successfully synced ${successes.length} items to ${table}`);
-      return true;
-    } catch (error) {
-      console.error(`Unexpected error syncing to ${table}:`, error);
-      if (showErrorToast) {
-        toast.error(`Failed to sync data to cloud. Your data is safe locally.`);
-      }
-      return false;
-    }
-  };
+       return true;
+     } catch (error) {
+       console.error(`Unexpected error syncing to ${table}:`, error);
+       if (showErrorToast) {
+         toast.error(`Sync error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+       }
+       return false;
+     }
+   };
 
   // Sync states to Supabase with debouncing - only after initial data is loaded
   useEffect(() => {
@@ -476,11 +489,12 @@ export default function App() {
     paymentMethod: savedPaymentMethods[0]?.method || ''
   });
 
-  // New states for pay dropdown
-  const [payDropdownInvoiceId, setPayDropdownInvoiceId] = useState<string | null>(null);
-  const [payAmount, setPayAmount] = useState(0);
-  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
-  const [payMethod, setPayMethod] = useState('');
+   // New states for pay dropdown
+   const [payDropdownInvoiceId, setPayDropdownInvoiceId] = useState<string | null>(null);
+   const [payAmount, setPayAmount] = useState(0);
+   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+   const [payMethod, setPayMethod] = useState('');
+   const [payNote, setPayNote] = useState('');
 
   const filteredMessages = messages.filter(msg => {
     if (!currentUser) return false;
@@ -489,7 +503,6 @@ export default function App() {
     if (msg.sender !== 'System') return true;
     if (!msg.category) return true;
     if (currentUser.role === 'Pipeline' && msg.category === 'pipeline') return true;
-    if (currentUser.role === 'Admin' && msg.category === 'clients') return true;
     if (currentUser.role === 'Projects' && msg.category === 'hosting') return true;
     return false;
   });
@@ -703,16 +716,22 @@ export default function App() {
   const [showAddPipeline, setShowAddPipeline] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [newHosting, setNewHosting] = useState({
-    domain: '',
-    amount: 0,
-    period: 'None' as HostingPeriod,
-    paymentStatus: 'Pending' as PaymentStatus,
-    invoiceStatus: 'Pending' as InvoiceStatus,
-    dueDate: new Date().toISOString().split('T')[0]
-  });
+   const [newHosting, setNewHosting] = useState({
+     domain: '',
+     amount: 0,
+     period: 'None' as HostingPeriod,
+     paymentStatus: 'Pending' as PaymentStatus,
+     invoiceStatus: 'Pending' as InvoiceStatus,
+     dueDate: new Date().toISOString().split('T')[0]
+   });
 
-  // Check for 7-day follow-up reminders
+   // Report filters
+   const [reportSearchQuery, setReportSearchQuery] = useState('');
+   const [reportDateFrom, setReportDateFrom] = useState('');
+   const [reportDateTo, setReportDateTo] = useState('');
+   const [reportType, setReportType] = useState<'all' | 'invoices' | 'contracts' | 'quotations' | 'clients' | 'expenses'>('all');
+
+   // Check for 7-day follow-up reminders
   useEffect(() => {
     if (!currentUser) return;
     if (currentUser.role !== 'Admin' && currentUser.role !== 'Pipeline') return;
@@ -920,7 +939,9 @@ export default function App() {
             cost: 0,
             received: 0,
             expressExpense: 0,
-            paymentStatus: 'Pending'
+            paymentStatus: 'Pending',
+            tasks: [],
+            isExpanded: false
           }]
         };
       }
@@ -1063,7 +1084,14 @@ export default function App() {
     }
   };
 
-  const updateContractStatus = (id: string, status: Contract['status']) => {
+   const deleteContract = (id: string) => {
+     const newContracts = contracts.filter(c => c.id !== id);
+     setContracts(newContracts);
+     debouncedSync('contracts', newContracts, true);
+     toast.success('Contract deleted');
+   };
+
+   const updateContractStatus = (id: string, status: Contract['status']) => {
     setContracts(prev => prev.map(c => c.id === id ? { ...c, status } : c));
     toast.success(`Status updated to ${status}`);
   };
@@ -1515,133 +1543,214 @@ export default function App() {
       toast.success('Invoice marked as paid');
     };
 
-  const recordPartialPayment = (id: string, amount: number, method?: string, note?: string) => {
-    if (amount <= 0) {
-      toast.error('Payment amount must be greater than zero');
-      return;
-    }
+   const recordPartialPayment = async (id: string, amount: number, method?: string, note?: string) => {
+     if (amount <= 0) {
+       toast.error('Payment amount must be greater than zero');
+       return;
+     }
 
-    const invoice = invoices.find(i => i.id === id);
-    if (!invoice) return;
+     const invoice = invoices.find(i => i.id === id);
+     if (!invoice) return;
 
-    const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-    if (currentPaid + amount > invoice.dueAmount) {
-      toast.error(`Payment exceeds remaining due amount. Remaining: ${invoice.currency} ${(invoice.dueAmount - currentPaid).toLocaleString()}`);
-      return;
-    }
+     const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+     if (currentPaid + amount > invoice.dueAmount) {
+       toast.error(`Payment exceeds remaining due amount. Remaining: ${invoice.currency} ${(invoice.dueAmount - currentPaid).toLocaleString()}`);
+       return;
+     }
 
-    const newPayment: PaymentRecord = {
-      id: Date.now().toString(),
-      amount,
-      date: new Date().toISOString().split('T')[0],
-      method,
-      note
+     const newPayment: PaymentRecord = {
+       id: Date.now().toString(),
+       amount,
+       date: new Date().toISOString().split('T')[0],
+       method,
+       note
+     };
+
+     const updatedInvoices = invoices.map(i => {
+       if (i.id === id) {
+         const payments = [...(i.payments || []), newPayment];
+         const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+         const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
+         return { ...i, payments, status };
+       }
+       return i;
+     });
+
+     setInvoices(updatedInvoices);
+
+     // Immediate sync to Supabase
+     const previousInvoices = previousDataRef.current['invoices'] || [];
+     const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
+      if (syncSuccess) {
+        previousDataRef.current['invoices'] = updatedInvoices;
+        // Sync viewingInvoice if open
+        if (viewingInvoice && viewingInvoice.id === id) {
+          const fresh = updatedInvoices.find(i => i.id === id);
+          if (fresh) setViewingInvoice(fresh);
+        }
+      } else {
+        setInvoices(invoices);
+        toast.error('Payment failed to sync. Changes reverted.');
+      }
     };
 
-    const updatedInvoices = invoices.map(i => {
-      if (i.id === id) {
-        const payments = [...(i.payments || []), newPayment];
-        const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
-        const status: InvoiceStatus = paidTotal >= i.dueAmount ? 'Completed' : 'Pending';
-        return { ...i, payments, status };
+    const deletePayment = async (invoiceId: string, paymentId: string) => {
+      const invoice = invoices.find(i => i.id === invoiceId);
+      if (!invoice) return;
+
+      const updatedPayments = (invoice.payments || []).filter(p => p.id !== paymentId);
+      const paidTotal = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+      const status: InvoiceStatus = paidTotal >= invoice.dueAmount ? 'Completed' : 'Pending';
+
+      const updatedInvoices = invoices.map(i =>
+        i.id === invoiceId ? { ...i, payments: updatedPayments, status } : i
+      );
+
+      setInvoices(updatedInvoices);
+
+      const previousInvoices = previousDataRef.current['invoices'] || [];
+      const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
+      if (syncSuccess) {
+        previousDataRef.current['invoices'] = updatedInvoices;
+        // Sync viewingInvoice if this invoice is currently being viewed
+        if (viewingInvoice && viewingInvoice.id === invoiceId) {
+          const fresh = updatedInvoices.find(i => i.id === invoiceId);
+          if (fresh) setViewingInvoice(fresh);
+        }
+        toast.success('Payment deleted');
+      } else {
+        setInvoices(invoices);
+        toast.error('Failed to delete payment');
       }
-      return i;
-    });
-    setInvoices(updatedInvoices);
-    toast.success(`Payment of ${invoice.currency} ${amount.toLocaleString()} recorded`);
-  };
+    };
 
-  const closePayDropdown = () => {
-    setPayDropdownInvoiceId(null);
-    setPayAmount(0);
-    setPayDate(new Date().toISOString().split('T')[0]);
-    setPayMethod('');
-  };
+    const closePayDropdown = () => {
+     setPayDropdownInvoiceId(null);
+     setPayAmount(0);
+     setPayDate(new Date().toISOString().split('T')[0]);
+     setPayMethod('');
+     setPayNote('');
+   };
 
-  const addInvoice = () => {
-    if (!newInvoice.clientName || !newInvoice.clientBusinessName) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+   const openPayModal = (invoiceId: string) => {
+     const invoice = invoices.find(i => i.id === invoiceId);
+     if (!invoice) return;
+     const currentPaid = invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+     const remaining = invoice.dueAmount - currentPaid;
+     setPayAmount(remaining);
+     setPayDate(new Date().toISOString().split('T')[0]);
+     setPayMethod(invoice.paymentMethod || savedPaymentMethods[0]?.method || '');
+     setPayNote('');
+     setPayDropdownInvoiceId(invoiceId);
+   };
 
-    const subTotal = newInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
-    const upfrontAmount = (subTotal * (newInvoice.upfrontPercentage || 0)) / 100;
-    const dueAmount = subTotal - upfrontAmount;
+   const addInvoice = async () => {
+     if (!newInvoice.clientName || !newInvoice.clientBusinessName) {
+       toast.error('Please fill in all required fields');
+       return;
+     }
 
-    const invoice: Invoice = {
-      id: Date.now().toString(),
-      invoiceNumber: newInvoice.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
-      dueDate: newInvoice.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      clientName: newInvoice.clientName,
-      clientBusinessName: newInvoice.clientBusinessName,
-      clientAddress: newInvoice.clientAddress || '',
-      companyName: newInvoice.companyName || 'Greypixel Agency',
-      companyAddress: newInvoice.companyAddress || '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
-      services: newInvoice.services as InvoiceService[],
-      subTotal,
-      upfrontPercentage: newInvoice.upfrontPercentage || 0,
-      upfrontAmount,
-      dueAmount,
+     const subTotal = newInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
+     const upfrontAmount = (subTotal * (newInvoice.upfrontPercentage || 0)) / 100;
+     const dueAmount = subTotal - upfrontAmount;
+
+     const invoice: Invoice = {
+       id: Date.now().toString(),
+       invoiceNumber: newInvoice.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
+       dueDate: newInvoice.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+       clientName: newInvoice.clientName,
+       clientBusinessName: newInvoice.clientBusinessName,
+       clientAddress: newInvoice.clientAddress || '',
+       companyName: newInvoice.companyName || 'Greypixel Agency',
+       companyAddress: newInvoice.companyAddress || '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
+       services: newInvoice.services as InvoiceService[],
+       subTotal,
+       upfrontPercentage: newInvoice.upfrontPercentage || 0,
+       upfrontAmount,
+       dueAmount,
        paymentMethod: newInvoice.paymentMethod || '',
        notes: newInvoice.notes,
        currency: newInvoice.currency || 'PKR',
        createdAt: new Date().toISOString(),
-       status: 'Pending'
+       status: 'Pending' as InvoiceStatus
      };
 
-    setInvoices([...invoices, invoice]);
-    
-    // Save payment method if it's new
-    if (newInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === newInvoice.paymentMethod)) {
-      setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: newInvoice.paymentMethod }]);
-    }
+      const newInvoices = [...invoices, invoice];
+      setInvoices(newInvoices);
 
-    setShowAddInvoice(false);
-    setNewInvoice({
-      invoiceNumber: `INV-${(Date.now() + 1).toString().slice(-6)}`,
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      clientName: '',
-      clientBusinessName: '',
-      clientAddress: '',
-      companyName: 'Greypixel Agency',
-      companyAddress: '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
-      services: [{ id: '1', service: '', cost: 0 }],
-      upfrontPercentage: 0,
-      currency: 'PKR',
-      notes: '',
-      paymentMethod: savedPaymentMethods[0]?.method || ''
-    });
-    toast.success('Invoice created successfully');
-  };
+      // Immediate sync to Supabase
+      const previousInvoices = previousDataRef.current['invoices'] || [];
+      const syncSuccess = await saveToSupabase('invoices', newInvoices, true, previousInvoices);
+      if (syncSuccess) {
+        previousDataRef.current['invoices'] = newInvoices;
+        toast.success('Invoice created successfully');
+      } else {
+        setInvoices(invoices); // revert
+        toast.error('Failed to save invoice to cloud. The change has been reverted.');
+      }
+      
+      // Save payment method if it's new
+     if (newInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === newInvoice.paymentMethod)) {
+       setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: newInvoice.paymentMethod }]);
+     }
 
-  const updateInvoice = () => {
-    if (!editingInvoice || !editingInvoice.clientName || !editingInvoice.clientBusinessName) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+      setShowAddInvoice(false);
+      setNewInvoice({
+        invoiceNumber: `INV-${(Date.now() + 1).toString().slice(-6)}`,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        clientName: '',
+        clientBusinessName: '',
+        clientAddress: '',
+        companyName: 'Greypixel Agency',
+        companyAddress: '301 Hunza Block, Allama Iqbal Town, Lahore, Pakistan',
+        services: [{ id: '1', service: '', cost: 0 }],
+        upfrontPercentage: 0,
+        currency: 'PKR',
+        notes: '',
+        paymentMethod: savedPaymentMethods[0]?.method || ''
+      });
+   };
 
-    const subTotal = editingInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
-    const upfrontAmount = (subTotal * (editingInvoice.upfrontPercentage || 0)) / 100;
-    const dueAmount = subTotal - upfrontAmount;
+   const updateInvoice = async () => {
+     if (!editingInvoice || !editingInvoice.clientName || !editingInvoice.clientBusinessName) {
+       toast.error('Please fill in all required fields');
+       return;
+     }
 
-    const updatedInvoice: Invoice = {
-      ...editingInvoice,
-      subTotal,
-      upfrontAmount,
-      dueAmount
-    };
+     const subTotal = editingInvoice.services?.reduce((sum, item) => sum + (Number(item.cost) || 0), 0) || 0;
+     const upfrontAmount = (subTotal * (editingInvoice.upfrontPercentage || 0)) / 100;
+     const dueAmount = subTotal - upfrontAmount;
 
-    setInvoices(invoices.map(i => i.id === editingInvoice.id ? updatedInvoice : i));
-    
-    // Save payment method if it's new
-    if (editingInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === editingInvoice.paymentMethod)) {
-      setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: editingInvoice.paymentMethod }]);
-    }
+     const updatedInvoice: Invoice = {
+       ...editingInvoice,
+       subTotal,
+       upfrontAmount,
+       dueAmount
+     };
 
-    setShowEditInvoice(false);
-    setEditingInvoice(null);
-    toast.success('Invoice updated successfully');
-  };
+      const updatedInvoices = invoices.map(i => i.id === editingInvoice.id ? updatedInvoice : i);
+      setInvoices(updatedInvoices);
+
+      // Immediate sync to Supabase
+      const previousInvoices = previousDataRef.current['invoices'] || [];
+      const syncSuccess = await saveToSupabase('invoices', updatedInvoices, true, previousInvoices);
+      if (syncSuccess) {
+        previousDataRef.current['invoices'] = updatedInvoices;
+      } else {
+        setInvoices(invoices); // revert
+        toast.error('Failed to save invoice to cloud. The change has been reverted.');
+        return;
+      }
+     
+     // Save payment method if it's new
+     if (editingInvoice.paymentMethod && !savedPaymentMethods.some(pm => pm.method === editingInvoice.paymentMethod)) {
+       setSavedPaymentMethods([...savedPaymentMethods, { id: Date.now().toString(), method: editingInvoice.paymentMethod }]);
+     }
+
+     setShowEditInvoice(false);
+     setEditingInvoice(null);
+     toast.success('Invoice updated successfully');
+   };
 
   const addInvoiceService = () => {
     const services = showEditInvoice ? editingInvoice?.services : newInvoice.services;
@@ -2520,9 +2629,18 @@ export default function App() {
                     count={expenseGroups.length}
                     setIsSidebarOpen={setIsSidebarOpen}
                   />
-                )}
-                <SidebarItem 
-                  icon={<Users size={20} />} 
+                 )}
+                 {currentUser.role === 'Admin' && (
+                   <SidebarItem 
+                     icon={<BarChart3 size={20} />}
+                     label="Reports"
+                     active={activeTab === 'reports'}
+                     onClick={() => setActiveTab('reports')}
+                     setIsSidebarOpen={setIsSidebarOpen}
+                   />
+                 )}
+                 <SidebarItem 
+                   icon={<Users size={20} />} 
                   label="Clients" 
                   active={activeTab === 'clients'} 
                   onClick={() => setActiveTab('clients')} 
@@ -2726,7 +2844,7 @@ export default function App() {
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-black text-gray-900">{invoice.currency} {invoice.dueAmount.toLocaleString()}</p>
-                                <p className={`text-[9px] font-black uppercase tracking-tighter ${invoice.status === 'Paid' ? 'text-emerald-500' : 'text-rose-500'}`}>{invoice.status || 'Pending'}</p>
+                                <p className={`text-[9px] font-black uppercase tracking-tighter ${invoice.status === 'Completed' ? 'text-emerald-500' : 'text-rose-500'}`}>{invoice.status || 'Pending'}</p>
                               </div>
                             </div>
                           ))}
@@ -3166,99 +3284,106 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {contracts.map(contract => (
-                    <div key={contract.id} className="bg-white rounded-[3rem] p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-bl-[5rem] -mr-16 -mt-16 group-hover:bg-gray-100 transition-colors" />
-                      
-                      <div className="relative">
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
-                            <FileText size={24} />
-                          </div>
-                          <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-50 text-rose-600">
-                            v{contract.version}
-                          </span>
-                          <select 
-                            value={contract.status}
-                            onChange={(e) => updateContractStatus(contract.id, e.target.value as Contract['status'])}
-                            className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest appearance-none cursor-pointer focus:outline-none ${
-                              contract.status === 'Signed' ? 'bg-emerald-50 text-emerald-600' :
-                              contract.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
-                              contract.status === 'Sent' ? 'bg-blue-50 text-blue-600' :
-                              'bg-gray-50 text-gray-400'
-                            }`}
-                          >
-                            <option value="Draft">Draft</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Sent">Sent</option>
-                            <option value="Signed">Signed</option>
-                            <option value="Expired">Expired</option>
-                          </select>
-                        </div>
+                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-left border-collapse">
+                       <thead>
+                         <tr className="bg-gray-50/50 border-b border-gray-100">
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Company</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-gray-50">
+                         {contracts.map(contract => (
+                           <tr key={contract.id} className="hover:bg-gray-50/30 transition-colors group cursor-pointer" onClick={() => setViewingContract(contract)}>
+                             <td className="px-8 py-6">
+                               <p className="font-black text-gray-900">{contract.clientName}</p>
+                             </td>
+                             <td className="px-8 py-6">
+                               <p className="text-sm text-gray-600">{contract.companyName}</p>
+                             </td>
+                             <td className="px-8 py-6">
+                               <p className="font-black text-gray-900">{contract.currency} {contract.amount.toLocaleString()}</p>
+                             </td>
+                             <td className="px-8 py-6">
+                               <p className="text-sm text-gray-600">{contract.contractDate}</p>
+                             </td>
+                            <td className="px-8 py-6 relative">
+                              <select
+                                value={contract.status}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  updateContractStatus(contract.id, e.target.value as Contract['status']);
+                                }}
+                                className={`appearance-none pl-4 pr-10 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none transition-all cursor-pointer w-full ${
+                                  contract.status === 'Signed' ? 'bg-emerald-50 text-emerald-600' :
+                                  contract.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
+                                  contract.status === 'Sent' ? 'bg-blue-50 text-blue-600' :
+                                  contract.status === 'Draft' ? 'bg-gray-50 text-gray-400' :
+                                  'bg-gray-50 text-gray-400'
+                                }`}
+                              >
+                                <option value="Draft">Draft</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Sent">Sent</option>
+                                <option value="Signed">Signed</option>
+                                <option value="Expired">Expired</option>
+                              </select>
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                <ChevronDown size={14} />
+                              </div>
+                            </td>
+                             <td className="px-8 py-6 text-right">
+                               <div className="flex items-center justify-end gap-2">
+                                 <button
+                                   onClick={(e) => { e.stopPropagation(); setViewingContract(contract); }}
+                                   className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                   title="View Contract"
+                                 >
+                                   <Eye size={18} />
+                                 </button>
+                                 <button
+                                   onClick={(e) => { e.stopPropagation(); setEditingContract(contract); setShowEditContract(true); }}
+                                   className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                   title="Edit Contract"
+                                 >
+                                   <Edit size={18} />
+                                 </button>
+                                 <button
+                                   onClick={(e) => { e.stopPropagation(); deleteContract(contract.id); }}
+                                   className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
+                                   title="Delete Contract"
+                                 >
+                                   <Trash2 size={18} />
+                                 </button>
+                               </div>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
 
-                        <h3 className="text-xl font-black text-gray-900 truncate">{contract.clientName}</h3>
-                        <p className="text-gray-400 font-medium text-sm mt-1">{contract.companyName}</p>
-
-                        <div className="mt-8 space-y-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400 font-medium">Amount</span>
-                            <span className="font-black text-gray-900">{contract.currency} {contract.amount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-400 font-medium">Date</span>
-                            <span className="font-black text-gray-900">{contract.contractDate}</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-8 pt-8 border-t border-gray-50 flex items-center justify-between">
-                          <button 
-                            onClick={() => setViewingContract(contract)}
-                            className="text-gray-900 font-black text-xs hover:underline flex items-center gap-2"
-                          >
-                            View
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setEditingContract(contract);
-                              setShowEditContract(true);
-                            }}
-                            className="text-gray-900 font-black text-xs hover:underline flex items-center gap-2"
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const newContracts = contracts.filter(c => c.id !== contract.id);
-                              setContracts(newContracts);
-                              debouncedSync('contracts', newContracts, true);
-                              toast.success('Contract deleted');
-                            }}
-                            className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {contracts.length === 0 && (
-                    <div className="col-span-full bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
-                        <FileText size={40} />
-                      </div>
-                      <h3 className="text-xl font-black text-gray-900">No contracts created yet</h3>
-                      <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate professional contracts for your clients in seconds.</p>
-                      <button 
-                        onClick={() => setShowAddContract(true)}
-                        className="mt-8 text-gray-900 font-black text-sm hover:underline"
-                      >
-                        Create your first contract
-                      </button>
-                    </div>
-                  )}
-                </div>
+                   {contracts.length === 0 && (
+                     <div className="bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
+                       <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
+                         <FileText size={40} />
+                       </div>
+                       <h3 className="text-xl font-black text-gray-900">No contracts created yet</h3>
+                       <p className="text-gray-400 font-medium mt-2 max-w-xs">Generate professional contracts for your clients in seconds.</p>
+                       <button 
+                         onClick={() => setShowAddContract(true)}
+                         className="mt-8 text-gray-900 font-black text-sm hover:underline"
+                       >
+                         Create your first contract
+                       </button>
+                     </div>
+                   )}
+                 </div>
               </motion.div>
             )}
 
@@ -3408,74 +3533,75 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {quotations.map(quote => (
-                    <div key={quote.id} className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-bl-[5rem] -mr-16 -mt-16 group-hover:bg-gray-100 transition-colors" />
-                      
-                      <div className="relative">
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
-                            <ClipboardList size={24} />
-                          </div>
-                          <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-400">
-                            {quote.date}
-                          </span>
-                        </div>
-
-                        <h3 className="text-lg sm:text-xl font-black text-gray-900 truncate">{quote.clientName}</h3>
-                        <p className="text-gray-400 font-medium text-xs sm:text-sm mt-1">{quote.clientBusinessName}</p>
-
-                        <div className="mt-8 grid grid-cols-2 gap-3">
-                          <div className="bg-rose-50/50 p-3 sm:p-4 rounded-2xl border border-rose-100/50 flex flex-col justify-center">
-                            <span className="text-[9px] sm:text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Upfront</span>
-                            <span className="text-rose-600 font-bold text-xs sm:text-sm">{quote.upfrontPercentage}%</span>
-                          </div>
-                          <div className="bg-emerald-50/50 p-3 sm:p-4 rounded-2xl border border-emerald-100/50 flex flex-col justify-center">
-                            <span className="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Payable</span>
-                            <span className="text-emerald-600 font-bold text-xs sm:text-sm">{quote.currency || 'PKR'} {quote.upfrontAmount.toLocaleString()}</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-8 pt-8 border-t border-gray-50 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                              {quote.items.length} {quote.items.length === 1 ? 'Service' : 'Services'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => downloadQuotationPDF(quote)}
-                              className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
-                              title="Download PDF"
-                            >
-                              <FileText size={18} />
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setEditingQuotation(quote);
-                                setShowEditQuotation(true);
-                              }}
-                              className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
-                              title="Edit Quotation"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button 
-                              onClick={() => deleteQuotation(quote.id)}
-                              className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
-                              title="Delete Quotation"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Cost</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Upfront %</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Upfront Amount</th>
+                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {quotations.map(quote => (
+                          <tr key={quote.id} className="hover:bg-gray-50/30 transition-colors group">
+                            <td className="px-8 py-6">
+                              <div>
+                                <p className="font-black text-gray-900">{quote.clientName}</p>
+                                <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-wider">{quote.clientBusinessName}</p>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="text-sm text-gray-600">{quote.date}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-gray-900">{quote.currency || 'PKR'} {quote.totalCost.toLocaleString()}</p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-600">
+                                {quote.upfrontPercentage}%
+                              </span>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-emerald-600">{quote.currency || 'PKR'} {quote.upfrontAmount.toLocaleString()}</p>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); downloadQuotationPDF(quote); }}
+                                  className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                  title="Download PDF"
+                                >
+                                  <FileText size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingQuotation(quote); setShowEditQuotation(true); }}
+                                  className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
+                                  title="Edit Quotation"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); deleteQuotation(quote.id); }}
+                                  className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-xl transition-all"
+                                  title="Delete Quotation"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
                   {quotations.length === 0 && (
-                    <div className="col-span-full bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
+                    <div className="bg-white rounded-[3rem] p-20 border border-dashed border-gray-200 flex flex-col items-center text-center">
                       <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300 mb-6">
                         <ClipboardList size={40} />
                       </div>
@@ -3520,16 +3646,18 @@ export default function App() {
                 <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-gray-50/50 border-b border-gray-100">
-                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Invoice #</th>
-                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
-                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Date</th>
-                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
-                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                          <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
-                        </tr>
-                      </thead>
+                       <thead>
+                         <tr className="bg-gray-50/50 border-b border-gray-100">
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Invoice #</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Client</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Due Date</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Paid</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Remaining</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                           <th className="px-8 py-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+                         </tr>
+                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {invoices.map(invoice => (
                           <tr
@@ -3551,6 +3679,16 @@ export default function App() {
                               <p className="font-black text-gray-900">{invoice.currency} {invoice.dueAmount.toLocaleString()}</p>
                             </td>
                             <td className="px-8 py-6">
+                              <p className="font-black text-emerald-600">
+                                {invoice.currency} {(invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0).toLocaleString()}
+                              </p>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="font-black text-rose-600">
+                                {invoice.currency} {(invoice.dueAmount - (invoice.payments?.reduce((sum, p) => sum + p.amount, 0) || 0)).toLocaleString()}
+                              </p>
+                            </td>
+                            <td className="px-8 py-6">
                               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                 invoice.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
                                 invoice.status === 'Pending' ? 'bg-amber-50 text-amber-600' :
@@ -3561,15 +3699,15 @@ export default function App() {
                             </td>
                             <td className="px-8 py-6 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                {invoice.status !== 'Completed' && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); markInvoiceAsPaid(invoice.id); }}
-                                    className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-xl transition-all"
-                                    title="Mark as Paid"
-                                  >
-                                    <CheckCircle2 size={18} />
-                                  </button>
-                                )}
+                                 {invoice.status !== 'Completed' && (
+                                   <button
+                                     onClick={(e) => { e.stopPropagation(); openPayModal(invoice.id); }}
+                                     className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-xl transition-all"
+                                     title="Record Payment"
+                                   >
+                                     <CheckCircle2 size={18} />
+                                   </button>
+                                 )}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); downloadInvoicePDF(invoice); }}
                                   className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-50 rounded-xl transition-all"
@@ -3831,6 +3969,20 @@ export default function App() {
                   )}
                 </div>
               </motion.div>
+            )}
+            {activeTab === 'reports' && (
+              <Reports 
+                data={{
+                  invoices,
+                  contracts,
+                  quotations,
+                  clients,
+                  expenseGroups,
+                  hosting,
+                  months,
+                  pipelineClients
+                }}
+              />
             )}
           </AnimatePresence>
         </div>
@@ -4127,21 +4279,52 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Totals */}
-                  <div className="space-y-3 pt-4 border-t border-gray-100">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Subtotal</span>
-                      <span className="font-bold text-gray-900">{viewingInvoice.currency} {viewingInvoice.subTotal.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Upfront ({viewingInvoice.upfrontPercentage}%)</span>
-                      <span className="font-bold text-rose-600">-{viewingInvoice.currency} {viewingInvoice.upfrontAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-black">
-                      <span>Total Due</span>
-                      <span className="text-gray-900">{viewingInvoice.currency} {viewingInvoice.dueAmount.toLocaleString()}</span>
-                    </div>
-                  </div>
+                   {/* Totals */}
+                   <div className="space-y-3 pt-4 border-t border-gray-100">
+                     <div className="flex justify-between text-sm">
+                       <span className="text-gray-500">Subtotal</span>
+                       <span className="font-bold text-gray-900">{viewingInvoice.currency} {viewingInvoice.subTotal.toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between text-sm">
+                       <span className="text-gray-500">Upfront ({viewingInvoice.upfrontPercentage}%)</span>
+                       <span className="font-bold text-rose-600">-{viewingInvoice.currency} {viewingInvoice.upfrontAmount.toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between text-lg font-black">
+                       <span>Total Due</span>
+                       <span className="text-gray-900">{viewingInvoice.currency} {viewingInvoice.dueAmount.toLocaleString()}</span>
+                     </div>
+
+                     {/* Payment History */}
+                     {viewingInvoice.payments && viewingInvoice.payments.length > 0 && (
+                       <div className="mt-6 pt-4 border-t border-gray-100">
+                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment History</p>
+                         <div className="space-y-2">
+                           {viewingInvoice.payments.map((payment) => (
+                             <div key={payment.id} className="flex justify-between items-center bg-emerald-50 px-4 py-3 rounded-xl">
+                               <div>
+                                 <p className="text-sm font-bold text-emerald-700">{viewingInvoice.currency} {payment.amount.toLocaleString()}</p>
+                                 {payment.note && <p className="text-xs text-gray-500 mt-1">{payment.note}</p>}
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-xs text-gray-600">{payment.date}</p>
+                                 {payment.method && <p className="text-xs text-gray-500">{payment.method}</p>}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                         <div className="flex justify-between mt-3 pt-3 border-t border-emerald-100 text-sm font-black">
+                           <span className="text-emerald-700">Total Paid</span>
+                           <span className="text-emerald-700">{viewingInvoice.currency} {viewingInvoice.payments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}</span>
+                         </div>
+                         <div className="flex justify-between mt-1 text-sm font-black">
+                           <span className="text-rose-600">Remaining</span>
+                           <span className="text-rose-600">
+                             {viewingInvoice.currency} {(viewingInvoice.dueAmount - viewingInvoice.payments.reduce((sum, p) => sum + p.amount, 0)).toLocaleString()}
+                           </span>
+                         </div>
+                       </div>
+                     )}
+                   </div>
 
                   {/* Payment Method & Notes */}
                   {viewingInvoice.paymentMethod && (
@@ -4161,18 +4344,17 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
-                {viewingInvoice.status !== 'Completed' && (
-                  <button
-                    onClick={() => {
-                      markInvoiceAsPaid(viewingInvoice.id);
-                      setViewingInvoice(null);
-                    }}
-                    className="flex-1 bg-emerald-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
-                  >
-                    Mark as Paid
-                  </button>
-                )}
+               <div className="p-10 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-4">
+                 {viewingInvoice.status !== 'Completed' && (
+                   <button
+                     onClick={() => {
+                       openPayModal(viewingInvoice.id);
+                     }}
+                     className="flex-1 bg-emerald-600 text-white py-5 rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
+                   >
+                     Record Payment
+                   </button>
+                 )}
                 <button
                   onClick={() => downloadInvoicePDF(viewingInvoice)}
                   className="flex-1 bg-gray-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-xl shadow-gray-200"
@@ -5038,7 +5220,13 @@ export default function App() {
                       }
 
                       const clientEntry: Client = {
-                        ...newClient,
+                        name: newClient.name!,
+                        status: newClient.status || 'Active',
+                        scope: newClient.scope || '',
+                        amount: newClient.amount || 0,
+                        currency: newClient.currency || 'PKR',
+                        isAutoCycle: !!newClient.isAutoCycle,
+                        websiteLink: newClient.websiteLink,
                         id: Math.random().toString(36).substr(2, 9),
                         date: finalDate,
                         dueDate: finalDueDate
@@ -6821,6 +7009,139 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+      {/* Payment Modal */}
+      <AnimatePresence>
+        {payDropdownInvoiceId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-lg rounded-[2rem] sm:rounded-[3rem] shadow-2xl border border-gray-100 overflow-hidden"
+            >
+              <div className="p-6 sm:p-10 border-b border-gray-100 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900">Record Payment</h2>
+                  <p className="text-gray-400 font-medium mt-1">Enter payment details for the invoice.</p>
+                </div>
+                <button onClick={closePayDropdown} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+               <div className="p-6 sm:p-10 space-y-6">
+                 {/* Existing Payments */}
+                 {(() => {
+                   const inv = invoices.find(i => i.id === payDropdownInvoiceId);
+                   const payments = inv?.payments || [];
+                   if (payments.length === 0) return null;
+                   return (
+                     <div>
+                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Payment History</p>
+                       <div className="space-y-2 max-h-48 overflow-y-auto">
+                         {payments.map(payment => (
+                           <div key={payment.id} className="flex items-center justify-between bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-100">
+                             <div className="flex-1 min-w-0">
+                               <p className="text-sm font-bold text-emerald-700">{inv?.currency} {payment.amount.toLocaleString()}</p>
+                               {payment.note && <p className="text-xs text-gray-500 truncate">{payment.note}</p>}
+                               <p className="text-xs text-gray-400 mt-1">{payment.date} {payment.method && `· ${payment.method}`}</p>
+                             </div>
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 if (confirm('Delete this payment?')) {
+                                   deletePayment(payDropdownInvoiceId, payment.id);
+                                 }
+                               }}
+                               className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all ml-2 shrink-0"
+                               title="Delete payment"
+                             >
+                               <Trash2 size={16} />
+                             </button>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   );
+                 })()}
+
+                 {/* Amount */}
+                 <div>
+                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Amount (PKR)</label>
+                   <input
+                     type="number"
+                     value={payAmount}
+                     onChange={(e) => setPayAmount(Number(e.target.value))}
+                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
+                   />
+                   <p className="text-xs text-gray-400 mt-1">
+                     Remaining due: {(() => {
+                       const inv = invoices.find(i => i.id === payDropdownInvoiceId);
+                       const paid = inv?.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+                       const rem = inv ? inv.dueAmount - paid : 0;
+                       return `${inv?.currency || 'PKR'} ${rem.toLocaleString()}`;
+                     })()}
+                   </p>
+                 </div>
+
+                 {/* Payment Date */}
+                 <div>
+                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Payment Date</label>
+                   <input
+                     type="date"
+                     value={payDate}
+                     onChange={(e) => setPayDate(e.target.value)}
+                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
+                   />
+                 </div>
+
+                 {/* Payment Method */}
+                 <div>
+                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Payment Method</label>
+                   <select
+                     value={payMethod}
+                     onChange={(e) => setPayMethod(e.target.value)}
+                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all"
+                   >
+                     {savedPaymentMethods.map(pm => (
+                       <option key={pm.id} value={pm.method}>{pm.method}</option>
+                     ))}
+                   </select>
+                 </div>
+
+                 {/* Note (Optional) */}
+                 <div>
+                   <label className="block text-sm font-black text-gray-400 uppercase tracking-wider mb-2">Note (Optional)</label>
+                   <textarea
+                     value={payNote}
+                     onChange={(e) => setPayNote(e.target.value)}
+                     placeholder="Add any additional notes..."
+                     className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-gray-900 focus:bg-white transition-all min-h-[80px] resize-none"
+                   />
+                 </div>
+               </div>
+              <div className="p-6 sm:p-10 pt-0 flex gap-4">
+                <button
+                  onClick={closePayDropdown}
+                  className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+                >
+                  Cancel
+                </button>
+                 <button
+                   onClick={() => {
+                     if (payDropdownInvoiceId) {
+                       recordPartialPayment(payDropdownInvoiceId, payAmount, payMethod, payNote);
+                       closePayDropdown();
+                     }
+                   }}
+                   className="flex-1 bg-gray-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
+                 >
+                   Record Payment
+                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -7326,8 +7647,8 @@ interface ProjectPreviewCardProps {
 }
 
 const ProjectPreviewCard: FC<ProjectPreviewCardProps> = ({ project, onClick }) => {
-  const completed = project.tasks.filter(t => t.status === 'Completed').length;
-  const total = project.tasks.length;
+  const completed = (project.tasks || []).filter(t => t.status === 'Completed').length;
+  const total = (project.tasks || []).length;
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
 
   return (
@@ -7374,7 +7695,7 @@ const ProjectCard: FC<ProjectCardProps> = ({ project, onToggle, onDelete, onAddT
     }
   };
 
-  const statusCounts = project.tasks.reduce((acc, task) => {
+  const statusCounts = (project.tasks || []).reduce((acc, task) => {
     acc[task.status] = (acc[task.status] || 0) + 1;
     return acc;
   }, {} as Record<Status, number>);
@@ -7399,10 +7720,10 @@ const ProjectCard: FC<ProjectCardProps> = ({ project, onToggle, onDelete, onAddT
             <h3 className="text-lg sm:text-xl font-black text-gray-900">{project.name}</h3>
             <div className="flex items-center gap-4 mt-1">
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
-                {project.tasks.length} {project.tasks.length === 1 ? 'Task' : 'Tasks'}
+                {(project.tasks || []).length} {(project.tasks || []).length === 1 ? 'Task' : 'Tasks'}
               </p>
               
-              {!project.isExpanded && project.tasks.length > 0 && (
+              {!project.isExpanded && (project.tasks || []).length > 0 && (
                 <div className="flex gap-2">
                   {statusCounts['Pending'] > 0 && (
                     <div className="flex items-center gap-1.5 bg-rose-50 px-2 py-1 rounded-xl border border-rose-100">
@@ -7449,7 +7770,7 @@ const ProjectCard: FC<ProjectCardProps> = ({ project, onToggle, onDelete, onAddT
             <div className="px-8 pb-10 space-y-6">
               {/* Task List */}
               <div className="space-y-3">
-                {project.tasks.map((task) => (
+                {(project.tasks || []).map((task) => (
                   <TaskItem
                     key={task.id}
                     task={task}
