@@ -379,34 +379,15 @@ export default function App() {
 
   // Debounced sync helper to prevent too many rapid syncs
   const debouncedSync = (table: string, data: any[], isDelete = false) => {
-    // For deletions, sync immediately instead of debouncing
-    if (isDelete) {
-      const previousData = previousDataRef.current[table] || [];
-      if (previousData.length > 0) {
-        const currentIds = new Set(data.map(item => item.id));
-        const toDelete = previousData.filter(item => !currentIds.has(item.id));
-        if (toDelete.length > 0) {
-          console.log(`Immediately deleting ${toDelete.length} items from ${table}`);
-          toDelete.forEach(item => {
-            supabase.from(table).delete().eq('id', item.id).then(() => {
-              console.log(`Deleted item ${item.id} from ${table}`);
-            });
-          });
-        }
-      }
-      previousDataRef.current[table] = data;
-      return;
-    }
-
     // Clear existing timeout for this table
     if (syncTimeouts[table]) {
       clearTimeout(syncTimeouts[table]);
     }
 
     // Set new timeout
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       const previousData = previousDataRef.current[table] || [];
-      saveToSupabase(table, data, false, previousData);
+      await saveToSupabase(table, data, false, previousData);
       previousDataRef.current[table] = data;
       setSyncTimeouts(prev => {
         const newTimeouts = { ...prev };
@@ -840,7 +821,7 @@ export default function App() {
     }
     const newUsers = users.filter(u => u.id !== id);
     setUsers(newUsers);
-    debouncedSync('users', newUsers, true);
+    debouncedSync('users', newUsers);
     toast.success('User deleted successfully');
   };
 
@@ -848,7 +829,7 @@ export default function App() {
   const deleteDay = (id: string) => {
     const newDays = days.filter(d => d.id !== id);
     setDays(newDays);
-    debouncedSync('days', newDays, true);
+    debouncedSync('days', newDays);
   };
 
   const addDay = () => {
@@ -919,7 +900,7 @@ export default function App() {
   const deleteMonth = (id: string) => {
     const newMonths = months.filter(m => m.id !== id);
     setMonths(newMonths);
-    debouncedSync('months', newMonths, true);
+    debouncedSync('months', newMonths);
   };
 
   const toggleMonth = (id: string) => {
@@ -1001,7 +982,7 @@ export default function App() {
   const deleteExpenseGroup = (groupId: string) => {
     const newExpenseGroups = expenseGroups.filter(g => g.id !== groupId);
     setExpenseGroups(newExpenseGroups);
-    debouncedSync('expense_groups', newExpenseGroups, true);
+    debouncedSync('expense_groups', newExpenseGroups);
     toast.success('Expense group deleted');
   };
 
@@ -1087,7 +1068,7 @@ export default function App() {
   const deleteContract = (id: string) => {
     const newContracts = contracts.filter(c => c.id !== id);
     setContracts(newContracts);
-    debouncedSync('contracts', newContracts, true);
+    debouncedSync('contracts', newContracts);
     toast.success('Contract deleted');
   };
 
@@ -1405,7 +1386,7 @@ export default function App() {
   const deletePipelineClient = (id: string) => {
     const newPipelineClients = pipelineClients.filter(c => c.id !== id);
     setPipelineClients(newPipelineClients);
-    debouncedSync('pipeline_clients', newPipelineClients, true);
+    debouncedSync('pipeline_clients', newPipelineClients);
     toast.success('Client removed from pipeline');
   };
 
@@ -1444,7 +1425,7 @@ export default function App() {
   const deleteWebsiteClient = (id: string) => {
     const newWebsiteClients = websiteClients.filter(c => c.id !== id);
     setWebsiteClients(newWebsiteClients);
-    debouncedSync('website_clients', newWebsiteClients, true);
+    debouncedSync('website_clients', newWebsiteClients);
     toast.success('Website client deleted');
   };
 
@@ -1486,7 +1467,7 @@ export default function App() {
   const deleteQuotation = (id: string) => {
     const newQuotations = quotations.filter(q => q.id !== id);
     setQuotations(newQuotations);
-    debouncedSync('quotations', newQuotations, true);
+    debouncedSync('quotations', newQuotations);
     toast.success('Quotation deleted');
   };
 
@@ -1516,7 +1497,7 @@ export default function App() {
     const updatedInvoices = invoices.filter(i => i.id !== id);
     console.log(`Invoices before: ${invoices.length}, after: ${updatedInvoices.length}`);
     setInvoices(updatedInvoices);
-    debouncedSync('invoices', updatedInvoices, true);
+    debouncedSync('invoices', updatedInvoices);
     toast.success('Invoice deleted');
   };
 
@@ -2314,7 +2295,7 @@ export default function App() {
   const deleteHosting = (id: string) => {
     const newHosting = hosting.filter(h => h.id !== id);
     setHosting(newHosting);
-    debouncedSync('hosting', newHosting, true);
+    debouncedSync('hosting', newHosting);
   };
 
   const updateHosting = (id: string, updates: Partial<Hosting>) => {
@@ -3067,7 +3048,7 @@ export default function App() {
                             onDelete={() => {
                               const newClients = clients.filter(cl => cl.id !== c.id);
                               setClients(newClients);
-                              debouncedSync('clients', newClients, true);
+                              debouncedSync('clients', newClients);
                             }}
                             onUpdate={(updates) => setClients(clients.map(cl => cl.id === c.id ? { ...cl, ...updates } : cl))}
                           />
